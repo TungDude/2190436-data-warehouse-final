@@ -1,3 +1,10 @@
+# Local manual utility.
+#
+# This script is not used by Lambda and is not part of the daily scheduled
+# ingestion path. It runs on a developer machine and invokes the deployed Lambda
+# repeatedly to backfill or reprocess historical Chicago crime date ranges.
+# Normal future ingestion is handled by EventBridge Scheduler.
+
 param(
     [string] $StartDate = "2019-01-01",
     [string] $EndDate,
