@@ -1,0 +1,5 @@
+aws_region  = "ap-southeast-1"
+aws_profile = "data-warehouse-final"
+
+# Keep this spelling unless the project convention changes.
+raw_chicago_crime_prefix = "raw/chicaho_crime"
