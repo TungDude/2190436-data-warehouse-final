@@ -299,11 +299,12 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 
 /* full (single column, content-heavy) */
 .slide.full{
-  grid-template-columns: 1fr;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
-.slide.full .header{ display:flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
-.slide.full .header h2{ margin: 6px 0 0 0; }
+.slide.full > .header{ flex: 0 0 auto; display:flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 0; }
+.slide.full > .header h2{ margin: 6px 0 0 0; }
 
 /* divider (section break) */
 .slide.divider{
@@ -393,7 +394,8 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 /* medallion */
 .medallion{
   display: grid; grid-template-columns: 1fr 28px 1fr 28px 1fr;
-  gap: 0; align-items: stretch; margin-top: 12px;
+  gap: 0; align-items: stretch; margin-top: 0;
+  flex: 1; min-height: 0;
 }
 .medallion .arrow{
   display:flex; align-items: center; justify-content: center; color: var(--paper-faint);
@@ -402,51 +404,93 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 .medallion .layer{
   border: 1px solid var(--paper-faint);
   background: rgba(239,233,221,.02);
-  padding: 26px 22px;
+  padding: 36px 30px 32px;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .medallion .layer .lbl{
-  font-family: var(--mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--paper-dim);
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--paper-dim);
 }
 .medallion .layer .name{
   font-family: var(--display); font-weight: 380; font-style: italic;
-  font-size: clamp(28px, 2.8vw, 40px); line-height: 1; margin: 6px 0 14px 0;
+  font-size: clamp(34px, 3.4vw, 52px); line-height: 1; margin: 10px 0 22px 0;
   font-variation-settings: "opsz" 96, "SOFT" 80;
 }
 .medallion .layer.bronze .name{ color: #C97D3A; }
 .medallion .layer.silver .name{ color: #B7BDC0; }
 .medallion .layer.gold   .name{ color: var(--ember-soft); }
-.medallion .layer p{ font-size: 13px; color: var(--paper-dim); margin: 0 0 10px 0; }
+.medallion .layer p{ font-size: 15px; line-height: 1.55; color: var(--paper-dim); margin: 0 0 14px 0; }
+.medallion .layer p:not(.muted){ color: var(--paper); }
 .medallion .layer code{
-  font-family: var(--mono); font-size: 11.5px; color: var(--paper);
+  font-family: var(--mono); font-size: 12px; color: var(--paper);
   display: block;
   background: rgba(0,0,0,.35);
-  padding: 8px 10px; border-radius: 4px;
+  padding: 10px 12px; border-radius: 4px;
   border: 1px solid var(--paper-hair);
-  margin-top: 10px;
+  margin-top: auto;
   word-break: break-all;
 }
 
 /* AWS service grid */
 .svc{
-  display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 0; border-top: var(--rule); border-left: var(--rule);
-  margin-top: 14px;
+  margin-top: 0;
+  flex: 1; min-height: 0;
+  align-content: stretch;
 }
 .svc .item{
   border-right: var(--rule); border-bottom: var(--rule);
-  padding: 18px 18px 22px;
+  padding: 16px 18px 18px;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .svc .item .name{
-  font-family: var(--display); font-weight: 500; font-size: 18px; line-height: 1.1; margin: 8px 0 4px 0;
+  font-family: var(--display); font-weight: 500; font-size: 19px; line-height: 1.15; margin: 10px 0 4px 0;
 }
-.svc .item .role{ font-size: 13px; color: var(--paper-dim); margin: 0 0 8px 0; line-height: 1.4; }
+.svc .item .role{ font-size: 13px; color: var(--paper-dim); margin: 0; line-height: 1.45; }
 .svc .item .pin{
-  position:absolute; top: 12px; right: 12px;
-  font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--paper-dim);
+  position:absolute; top: 12px; right: 14px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .14em; color: var(--paper-dim);
 }
+
+/* AWS service icons — coloured squircle + white glyph */
+.svc .item .ico{
+  width: 34px; height: 34px;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 2px;
+  position: relative;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 1px 2px rgba(0,0,0,.4);
+}
+.svc .item .ico svg{
+  width: 19px; height: 19px;
+  stroke: #fff; fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.svc .item .ico-storage    { background: linear-gradient(135deg, #2E7B49, #5C9A55); }
+.svc .item .ico-compute    { background: linear-gradient(135deg, #C8520E, #ED7100); }
+.svc .item .ico-integration{ background: linear-gradient(135deg, #BB1B6C, #E7157B); }
+.svc .item .ico-analytics  { background: linear-gradient(135deg, #6533CC, #8C4FFF); }
+.svc .item .ico-database   { background: linear-gradient(135deg, #2D5BD9, #527FFF); }
+.svc .item .ico-security   { background: linear-gradient(135deg, #B32639, #DD344C); }
+.svc .item .ico-bi         { background: linear-gradient(135deg, #B45A0E, #E07621); }
+.svc .item.rejected{
+  background: rgba(227,107,45,.04);
+  border-color: rgba(227,107,45,.3) !important;
+}
+.svc .item .ico-rejected{
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(239,233,221,.18);
+}
+.svc .item .ico-rejected svg{ stroke: rgba(239,233,221,.45); }
 
 /* schema diagram */
 .schema{
@@ -509,30 +553,162 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 .bus td.tick{ color: var(--ember); font-family: var(--mono); font-size: 16px; }
 .bus td.dot{ color: var(--paper-faint); }
 
-/* SCD list */
-.scd{
+/* SCD typology — redesigned as 4-column visual taxonomy */
+.scd-grid{
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 36px;
-  row-gap: 0;
-}
-.scd .row{
-  display: grid;
-  grid-template-columns: 1.4fr auto;
-  align-items: baseline;
-  gap: 14px;
-  padding: 12px 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  border-top: var(--rule);
   border-bottom: var(--rule);
 }
-.scd .dim{
-  font-family: var(--display); font-style: italic; font-size: 18px; font-weight: 500;
+.scd-col{
+  padding: 18px 22px 18px;
+  border-right: var(--rule);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
 }
-.scd .type{
-  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--ember); white-space: nowrap;
+.scd-col:last-child{ border-right: 0; }
+.scd-col.is-hybrid{
+  background:
+    linear-gradient(180deg, rgba(227,107,45,.05), transparent 40%),
+    rgba(239,233,221,.012);
 }
-.scd .why{
-  grid-column: 1 / -1; font-size: 12.5px; color: var(--paper-dim); margin-top: 4px; line-height: 1.5;
+
+.scd-num{
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 380;
+  font-size: clamp(64px, 6.8vw, 116px);
+  line-height: .9;
+  letter-spacing: -.04em;
+  color: var(--ember-soft);
+  margin: 0;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  display: flex;
+  align-items: baseline;
+}
+.scd-num .sym{
+  font-size: .32em;
+  color: var(--paper-dim);
+  font-style: normal;
+  font-family: var(--mono);
+  font-weight: 400;
+  letter-spacing: 0;
+  margin: 0 .12em 0 .08em;
+  align-self: center;
+}
+.scd-type{
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: var(--ember);
+  margin: 6px 0 18px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.scd-type::before{
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: var(--ember);
+}
+
+.scd-glyph{
+  width: 100%;
+  max-width: 280px;
+  height: clamp(64px, 7vh, 92px);
+  margin: 6px 0 16px 0;
+  align-self: stretch;
+  display: block;
+}
+.scd-glyph .scd-bar-static{ fill: rgba(110,141,160,.18); stroke: rgba(110,141,160,.7); stroke-width: 1.2; rx: 2; }
+.scd-glyph .scd-bar-old{ fill: rgba(239,233,221,.04); stroke: rgba(239,233,221,.32); stroke-width: 1; stroke-dasharray: 3 2; rx: 2; }
+.scd-glyph .scd-bar-new{ fill: rgba(227,107,45,.20); stroke: rgba(227,107,45,.85); stroke-width: 1.2; rx: 2; }
+.scd-glyph .scd-bar-v  { fill: rgba(239,233,221,.075); stroke: rgba(239,233,221,.42); stroke-width: 1; rx: 2; }
+.scd-glyph .scd-strike { stroke: rgba(239,233,221,.5); stroke-width: 1.2; stroke-dasharray: 2 2; }
+.scd-glyph .scd-axis   { stroke: rgba(239,233,221,.22); stroke-width: 1; }
+.scd-glyph .scd-arrow  { stroke: var(--ember); stroke-width: 1.6; fill: none; }
+.scd-glyph .scd-tick{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  fill: rgba(199,191,175,.78);
+  letter-spacing: .12em;
+}
+.scd-glyph .scd-tick-em{ fill: var(--ember-soft); }
+.scd-glyph .scd-bar-text{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .2em;
+  fill: rgba(239,233,221,.92);
+  text-transform: uppercase;
+}
+
+.scd-caption{
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 380;
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--paper);
+  margin: 0 0 14px 0;
+  font-variation-settings: "opsz" 36, "SOFT" 80;
+}
+.scd-dims{
+  list-style: none;
+  margin: auto 0 0 0;
+  padding: 0;
+  border-top: 1px solid var(--paper-faint);
+}
+.scd-dims li{
+  border-bottom: 1px solid var(--paper-hair);
+  padding: 8px 0;
+}
+.scd-dims li:last-child{ border-bottom: 0; }
+.scd-dims li b{
+  display: block;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--paper);
+  letter-spacing: .02em;
+  margin-bottom: 2px;
+}
+.scd-dims li span{
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--paper-dim);
+  line-height: 1.4;
+}
+
+.scd-skip{
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0 0;
+  margin-top: 4px;
+}
+.scd-skip-tag{
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  flex-shrink: 0;
+  border: 1px solid var(--paper-hair);
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+.scd-skip-text{
+  font-size: 13px;
+  color: var(--paper-dim);
+  line-height: 1.5;
 }
 
 /* DAG (legacy — kept in case other slides use it) */
@@ -563,9 +739,12 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 
 /* SVG diagram (architecture, schema, orchestration) */
 .diagram-slide{
-  grid-template-columns: 1fr;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
+.diagram-slide > .header{ flex: 0 0 auto; }
+.diagram-slide > .diagram{ flex: 1; min-height: 0; }
 .diagram{
   width: 100%;
   margin-top: 6px;
@@ -668,14 +847,18 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 
 /* dashboards */
 .dash{
-  display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 14px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  flex: 1; min-height: 0;
 }
 .dash .panel{
   border: 1px solid var(--paper-faint);
-  padding: 22px 24px;
+  padding: 22px 24px 24px;
   background:
     linear-gradient(180deg, rgba(227,107,45,.03), transparent 30%),
     rgba(239,233,221,.02);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .dash .panel.b{
   background:
@@ -683,13 +866,30 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
     rgba(239,233,221,.02);
 }
 .dash .panel .who{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--paper-dim); }
-.dash .panel .nm{ font-family: var(--display); font-style: italic; font-size: 28px; margin: 4px 0 10px 0; }
+.dash .panel .nm{ font-family: var(--display); font-style: italic; font-size: 30px; margin: 4px 0 12px 0; }
 .dash .panel.a .nm{ color: var(--ember-soft); }
 .dash .panel.b .nm{ color: var(--dusk); }
-.dash .panel ul{ margin: 0; padding-left: 18px; }
+.dash .panel ul{ margin: 0 0 14px 0; padding-left: 18px; }
 .dash .panel li{ font-size: 13.5px; color: var(--paper); margin: 6px 0; }
 .dash .panel li::marker{ color: var(--paper-dim); }
 .dash .panel li b{ color: var(--paper); font-weight: 500; }
+.dash .panel .placeholder{
+  flex: 1;
+  min-height: 200px;
+  margin-top: auto;
+  border: 1px dashed var(--paper-faint);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--paper-dim);
+  background:
+    repeating-linear-gradient(45deg, transparent 0 12px, rgba(239,233,221,.02) 12px 13px),
+    rgba(239,233,221,.015);
+  text-align: center;
+  padding: 16px;
+}
+.dash .panel.a .placeholder{ border-color: rgba(227,107,45,.25); }
+.dash .panel.b .placeholder{ border-color: rgba(110,141,160,.3); }
 
 /* status timeline */
 .timeline{
@@ -813,6 +1013,11 @@ pre.mono .h{ color: var(--dusk); }
   .timeline{ grid-template-columns: 1fr; }
   .dash{ grid-template-columns: 1fr; }
 }
+
+/* Force services to stay 3 cols on the laptop viewport so it doesn't relapse to 2 */
+@media (min-width: 1280px){
+  .svc{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
 </style>
 </head>
 <body>
@@ -823,7 +1028,7 @@ pre.mono .h{ color: var(--dusk); }
     <kbd>Space</kbd>&nbsp;Forward &nbsp;·&nbsp;
     <kbd>F</kbd>&nbsp;Fullscreen
   </div>
-  <div class="slide-counter"><span>Slide</span> <b id="cnum">01</b> / <span id="ctot">17</span></div>
+  <div class="slide-counter"><span>Slide</span> <b id="cnum">01</b> / <span id="ctot">13</span></div>
 </div>
 
 <div class="progress-track"><div class="progress-bar" id="pbar"></div></div>
@@ -855,7 +1060,7 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="data">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 01 · The data</div>
+        <div class="eyebrow">The brief · five sources, two formats</div>
         <h2 class="headline">Five sources, two formats, <em>one city.</em></h2>
       </div>
       <small class="fineprint">Comfortably above the 100 000-row threshold; covers CSV and JSON to satisfy the variety requirement.</small>
@@ -916,8 +1121,8 @@ pre.mono .h{ color: var(--dusk); }
 
   <!-- 04 — DIVIDER · ARCHITECTURE -->
   <section class="slide divider" data-section="arch">
-    <div class="num reveal">02</div>
-    <div class="eyebrow reveal reveal-2">Section two</div>
+    <div class="num reveal">01</div>
+    <div class="eyebrow reveal reveal-2">Section one</div>
     <h1 class="display reveal reveal-3"><em>Architecture</em><br>at rest.</h1>
     <p class="lede reveal reveal-4" style="margin-top: 22px;">A medallion lakehouse on the lake side; a Kimball star on the warehouse side. Glue is the bridge.</p>
   </section>
@@ -926,7 +1131,7 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="medallion">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 02 · Medallion zoning</div>
+        <div class="eyebrow">§ 01 · Medallion zoning</div>
         <h2 class="headline">Bronze, silver, <em>gold</em> — three quality tiers, one bucket.</h2>
       </div>
       <small class="fineprint">Lakehouse design pattern · Bronze raw, Silver standardised, Gold curated</small>
@@ -973,7 +1178,7 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide diagram-slide" data-section="flow">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 03 · Architecture</div>
+        <div class="eyebrow">§ 02 · Architecture</div>
         <h2 class="headline">From a public API to a <em>QuickSight pixel.</em></h2>
       </div>
       <small class="fineprint">Every box is a managed AWS primitive — no standing servers.</small>
@@ -1131,36 +1336,129 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="services">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 04 · The stack</div>
+        <div class="eyebrow">§ 03 · The stack</div>
         <h2 class="headline">Eleven services, <em>chosen with restraint.</em></h2>
       </div>
       <small class="fineprint">Every service below is here for a reason — and every alternative was rejected for one.</small>
     </div>
 
     <div class="svc reveal reveal-2">
-      <div class="item"><div class="pin">01</div><div class="name">Amazon S3</div><div class="role">Bronze + Silver storage. The data lake itself.</div></div>
-      <div class="item"><div class="pin">02</div><div class="name">AWS Lambda</div><div class="role">One-per-source ingest workers. &lt; 50 MB/day fits Lambda cleanly.</div></div>
-      <div class="item"><div class="pin">03</div><div class="name">EventBridge Scheduler</div><div class="role">Native cron. Already firing the Chicago Crime fetcher.</div></div>
-      <div class="item"><div class="pin">04</div><div class="name">Glue Data Catalog</div><div class="role">Hive-compatible metastore for the lake.</div></div>
-      <div class="item"><div class="pin">05</div><div class="name">Glue Crawler</div><div class="role">Schema discovery. Saves writing DDL for raw files.</div></div>
-      <div class="item"><div class="pin">06</div><div class="name">Glue ETL · PySpark</div><div class="role">The big-data component. Bronze→Silver and Silver→Gold transforms.</div></div>
-      <div class="item"><div class="pin">07</div><div class="name">RDS PostgreSQL 16</div><div class="role">Gold layer. Star schema with SCD merges, identity surrogates.</div></div>
-      <div class="item"><div class="pin">08</div><div class="name">Amazon Athena</div><div class="role">Ad-hoc SQL on silver Parquet. Free per-query — used for validation.</div></div>
-      <div class="item"><div class="pin">09</div><div class="name">Glue Workflows</div><div class="role">Crawler → Spark → Spark → asserts. Picked over MWAA for cost.</div></div>
-      <div class="item"><div class="pin">10</div><div class="name">Amazon QuickSight</div><div class="role">Two SPICE-backed dashboards, RDS connector.</div></div>
-      <div class="item"><div class="pin">11</div><div class="name">IAM · KMS · VPC</div><div class="role">Least-privilege roles, SSE on S3 + RDS, private subnets.</div></div>
-      <div class="item" style="background: rgba(227,107,45,.04); border-color: rgba(227,107,45,.3);">
+
+      <div class="item">
+        <div class="pin">01</div>
+        <div class="ico ico-storage" aria-label="Amazon S3 icon">
+          <svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2"/><path d="M5 6 V18 C5 19.5 8 20.2 12 20.2 C16 20.2 19 19.5 19 18 V6"/><path d="M5 12 C 5 13.4 8 14 12 14 C 16 14 19 13.4 19 12"/></svg>
+        </div>
+        <div class="name">Amazon S3</div>
+        <div class="role">Bronze + Silver storage. The data lake itself.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">02</div>
+        <div class="ico ico-compute" aria-label="AWS Lambda icon">
+          <svg viewBox="0 0 24 24"><path d="M5 5 H9 L17 19 M11.5 9.5 L7 19"/></svg>
+        </div>
+        <div class="name">AWS Lambda</div>
+        <div class="role">One-per-source ingest workers. &lt; 50 MB/day fits Lambda cleanly.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">03</div>
+        <div class="ico ico-integration" aria-label="EventBridge icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 7.5 V12 L15.5 14"/></svg>
+        </div>
+        <div class="name">EventBridge Scheduler</div>
+        <div class="role">Native cron. Already firing the Chicago Crime fetcher.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">04</div>
+        <div class="ico ico-analytics" aria-label="Glue Data Catalog icon">
+          <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="4" rx="1"/><rect x="4" y="11" width="16" height="4" rx="1"/><rect x="4" y="17" width="16" height="4" rx="1"/><circle cx="7" cy="7" r=".6" fill="#fff"/><circle cx="7" cy="13" r=".6" fill="#fff"/><circle cx="7" cy="19" r=".6" fill="#fff"/></svg>
+        </div>
+        <div class="name">Glue Data Catalog</div>
+        <div class="role">Hive-compatible metastore for the lake.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">05</div>
+        <div class="ico ico-analytics" aria-label="Glue Crawler icon">
+          <svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="5"/><path d="M14 14 L19 19"/></svg>
+        </div>
+        <div class="name">Glue Crawler</div>
+        <div class="role">Schema discovery. Saves writing DDL for raw files.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">06</div>
+        <div class="ico ico-analytics" aria-label="Glue ETL icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 4 V7 M12 17 V20 M4 12 H7 M17 12 H20 M6.5 6.5 L8.5 8.5 M15.5 15.5 L17.5 17.5 M15.5 8.5 L17.5 6.5 M8.5 15.5 L6.5 17.5"/></svg>
+        </div>
+        <div class="name">Glue ETL · PySpark</div>
+        <div class="role">The big-data component. Bronze→Silver and Silver→Gold transforms.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">07</div>
+        <div class="ico ico-database" aria-label="RDS PostgreSQL icon">
+          <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7" ry="2.4"/><path d="M5 5 V19 C5 20.5 8 21.2 12 21.2 C16 21.2 19 20.5 19 19 V5"/><path d="M5 9.5 C 5 10.9 8 11.5 12 11.5 C 16 11.5 19 10.9 19 9.5"/><path d="M5 14 C 5 15.4 8 16 12 16 C 16 16 19 15.4 19 14"/></svg>
+        </div>
+        <div class="name">RDS PostgreSQL 16</div>
+        <div class="role">Gold layer. Star schema with SCD merges, identity surrogates.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">08</div>
+        <div class="ico ico-analytics" aria-label="Athena icon">
+          <svg viewBox="0 0 24 24"><path d="M5 19 C 5 13 9 7 18 5 L18 8 L21 8 L18 11 L18 14 L15 14 L13 17 L10 17 L7 19 Z"/><line x1="11" y1="13" x2="6" y2="18"/></svg>
+        </div>
+        <div class="name">Amazon Athena</div>
+        <div class="role">Ad-hoc SQL on silver Parquet. Free per-query — used for validation.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">09</div>
+        <div class="ico ico-analytics" aria-label="Glue Workflows icon">
+          <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><line x1="8.4" y1="6" x2="15.6" y2="6"/><line x1="6.6" y1="8.2" x2="11" y2="15.6"/><line x1="17.4" y1="8.2" x2="13" y2="15.6"/></svg>
+        </div>
+        <div class="name">Glue Workflows</div>
+        <div class="role">Crawler → Spark → Spark → asserts. Picked over MWAA for cost.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">10</div>
+        <div class="ico ico-bi" aria-label="QuickSight icon">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="14" width="2.6" height="6"/><rect x="11" y="9" width="2.6" height="11"/><rect x="16" y="5" width="2.6" height="15"/></svg>
+        </div>
+        <div class="name">Amazon QuickSight</div>
+        <div class="role">Two SPICE-backed dashboards, RDS connector.</div>
+      </div>
+
+      <div class="item">
+        <div class="pin">11</div>
+        <div class="ico ico-security" aria-label="IAM, KMS, VPC icon">
+          <svg viewBox="0 0 24 24"><path d="M12 3 L19 6 V12 C 19 16 16 19 12 21 C 8 19 5 16 5 12 V6 Z"/><path d="M9 12 L11 14 L15 10"/></svg>
+        </div>
+        <div class="name">IAM · KMS · VPC</div>
+        <div class="role">Least-privilege roles, SSE on S3 + RDS, private subnets.</div>
+      </div>
+
+      <div class="item rejected">
         <div class="pin">∅</div>
+        <div class="ico ico-rejected" aria-label="Rejected services icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+        </div>
         <div class="name" style="color: var(--paper-dim); font-style: italic;">Redshift · MSK · MWAA · DMS · ElastiCache · EMR · Lake Formation</div>
         <div class="role">Each rejected with a written reason. Restraint is part of the design.</div>
       </div>
+
     </div>
   </section>
 
   <!-- 08 — DIVIDER · WAREHOUSE -->
   <section class="slide divider" data-section="dw">
-    <div class="num reveal">03</div>
-    <div class="eyebrow reveal reveal-2">Section three</div>
+    <div class="num reveal">02</div>
+    <div class="eyebrow reveal reveal-2">Section two</div>
     <h1 class="display reveal reveal-3">The <em>warehouse</em>,<br>by the book.</h1>
     <p class="lede reveal reveal-4" style="margin-top: 22px;">Kimball's four-step process, applied step-by-step — grain, dimensions, facts, then everything else.</p>
   </section>
@@ -1168,7 +1466,7 @@ pre.mono .h{ color: var(--dusk); }
   <!-- 09 — STAR SCHEMA VISUAL -->
   <section class="slide split" data-section="star">
     <div class="left">
-      <div class="eyebrow reveal">§ 05 · Star schema</div>
+      <div class="eyebrow reveal">§ 04 · Star schema</div>
       <h2 class="headline reveal reveal-2">One fact at the centre. <em>Six dimensions</em> around it.</h2>
       <p class="body muted reveal reveal-3">The grain is one row per reported incident, identified by Chicago's stable <code style="font-family:var(--mono);">id</code>. Two role-playing date FKs (occurrence + report) reach back to <code style="font-family:var(--mono);">dim_date</code>. Hourly weather and an SCD2-tracked location dimension hang off the same fact.</p>
       <div class="refs reveal reveal-4">
@@ -1261,7 +1559,7 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="bus">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 06 · Bus matrix</div>
+        <div class="eyebrow">§ 05 · Bus matrix</div>
         <h2 class="headline">Two business processes, <em>one set of dimensions.</em></h2>
       </div>
       <small class="fineprint">Conformed-dimension bus matrix · drives drill-across between facts</small>
@@ -1318,60 +1616,111 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="scd">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 07 · Slowly changing dimensions</div>
+        <div class="eyebrow">§ 06 · Slowly changing dimensions</div>
         <h2 class="headline">Every dimension implements an SCD. <em>Type chosen by intent.</em></h2>
       </div>
       <small class="fineprint">The rubric requires every dimension to implement an SCD — pick the right type per intent.</small>
     </div>
 
-    <div class="scd reveal reveal-2">
-      <div class="row">
-        <div class="dim">dim_date</div>
-        <div class="type">Type 0 · retain</div>
-        <div class="why">Calendar attributes (month, quarter, holiday) never legitimately change.</div>
+    <div class="scd-grid reveal reveal-2">
+
+      <!-- TYPE 0 · retain -->
+      <div class="scd-col">
+        <div class="scd-num">0</div>
+        <div class="scd-type">retain</div>
+        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 0 — set once, never changes">
+          <rect class="scd-bar-static" x="6" y="22" width="228" height="20"/>
+          <text class="scd-bar-text" x="120" y="35" text-anchor="middle">never changes</text>
+          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
+          <text class="scd-tick" x="6" y="70">t₀</text>
+          <text class="scd-tick" x="234" y="70" text-anchor="end">→</text>
+        </svg>
+        <p class="scd-caption">Set once at load time. Calendar, time-of-day, hourly weather — these don't have a "change" story.</p>
+        <ul class="scd-dims">
+          <li><b>dim_date</b><span>calendar attributes are static</span></li>
+          <li><b>dim_time_of_day</b><span>24 fixed rows by design</span></li>
+          <li><b>dim_weather</b><span>immutable hourly observations</span></li>
+        </ul>
       </div>
-      <div class="row">
-        <div class="dim">dim_time_of_day</div>
-        <div class="type">Type 0 · retain</div>
-        <div class="why">Hour-of-day attributes are static; a 24-row dimension by design.</div>
+
+      <!-- TYPE 1 · overwrite -->
+      <div class="scd-col">
+        <div class="scd-num">1</div>
+        <div class="scd-type">overwrite</div>
+        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 1 — old replaced by new">
+          <rect class="scd-bar-old" x="6" y="10" width="228" height="14"/>
+          <line class="scd-strike" x1="14" y1="17" x2="226" y2="17"/>
+          <path class="scd-arrow" d="M 30 26 L 30 36" marker-end="url(#scd-arr)"/>
+          <rect class="scd-bar-new" x="6" y="38" width="228" height="14"/>
+          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
+          <text class="scd-tick" x="6" y="70">prior</text>
+          <text class="scd-tick scd-tick-em" x="234" y="70" text-anchor="end">latest only</text>
+          <defs>
+            <marker id="scd-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ember)"/>
+            </marker>
+          </defs>
+        </svg>
+        <p class="scd-caption">Replace in place when the source changes. No history kept — the past is gone.</p>
+        <ul class="scd-dims">
+          <li><b>dim_crime_flags</b><span>junk dim, history not needed</span></li>
+          <li><b>dim_arrestee</b><span>not "owned" across time</span></li>
+        </ul>
       </div>
-      <div class="row">
-        <div class="dim">dim_location</div>
-        <div class="type">Type 2 + 1 · hybrid</div>
-        <div class="why">Socioeconomics (poverty, hardship, income) version per ACS snapshot. Static labels (community-area name) overwrite.</div>
+
+      <!-- TYPE 2 · add row -->
+      <div class="scd-col">
+        <div class="scd-num">2</div>
+        <div class="scd-type">add row</div>
+        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 2 — new row per version">
+          <rect class="scd-bar-v"  x="6"   y="6"  width="76"  height="11"/>
+          <rect class="scd-bar-v"  x="68"  y="22" width="100" height="11"/>
+          <rect class="scd-bar-new" x="148" y="38" width="86"  height="11"/>
+          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
+          <text class="scd-tick" x="6"   y="70">v₁</text>
+          <text class="scd-tick" x="92"  y="70">v₂</text>
+          <text class="scd-tick scd-tick-em" x="234" y="70" text-anchor="end">v₃ · current</text>
+        </svg>
+        <p class="scd-caption">Add a new row, end-date the old. Historical facts join the version that was active when the event happened.</p>
+        <ul class="scd-dims">
+          <li><b>dim_crime_type</b><span>IUCR codes evolve · keep prior reports correct</span></li>
+        </ul>
       </div>
-      <div class="row">
-        <div class="dim">dim_crime_type</div>
-        <div class="type">Type 2 · add row</div>
-        <div class="why">When CPD retires/replaces an IUCR code we keep historical reports correct against the then-active description.</div>
+
+      <!-- TYPE 2 + 1 · hybrid -->
+      <div class="scd-col is-hybrid">
+        <div class="scd-num">2<span class="sym">+</span>1</div>
+        <div class="scd-type">hybrid</div>
+        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 2 plus 1 — mixed strategy per attribute">
+          <!-- versioned (Type 2) attrs -->
+          <rect class="scd-bar-v"   x="6"   y="6"  width="60" height="9"/>
+          <rect class="scd-bar-v"   x="56"  y="18" width="80" height="9"/>
+          <rect class="scd-bar-new" x="126" y="30" width="108" height="9"/>
+          <!-- overwrite (Type 1) row -->
+          <rect class="scd-bar-old" x="6"   y="44" width="228" height="10"/>
+          <line class="scd-strike"  x1="100" y1="49" x2="226" y2="49"/>
+          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
+          <text class="scd-tick" x="6"   y="70">2 · versioned attrs</text>
+          <text class="scd-tick" x="234" y="70" text-anchor="end">1 · overwritten attrs</text>
+        </svg>
+        <p class="scd-caption">Some columns version (Type 2), others overwrite (Type 1) — choose per attribute, not per dimension.</p>
+        <ul class="scd-dims">
+          <li><b>dim_location</b><span>socio attrs versioned · names overwrite</span></li>
+        </ul>
       </div>
-      <div class="row">
-        <div class="dim">dim_weather</div>
-        <div class="type">Type 0 · retain</div>
-        <div class="why">Each row is an immutable hourly observation — there is no "change" concept.</div>
-      </div>
-      <div class="row">
-        <div class="dim">dim_crime_flags</div>
-        <div class="type">Type 1 · overwrite</div>
-        <div class="why">Junk dimension — the cartesian product of two booleans. New combos add a row, never edit.</div>
-      </div>
-      <div class="row">
-        <div class="dim">dim_arrestee</div>
-        <div class="type">Type 1 · overwrite</div>
-        <div class="why">Source provides race only, not "owned" by a person across time.</div>
-      </div>
-      <div class="row">
-        <div class="dim" style="color: var(--paper-dim);">SCD3 · add column</div>
-        <div class="type" style="color: var(--paper-dim); border-color: var(--paper-faint);">explicitly skipped</div>
-        <div class="why">We need the full history of socioeconomic indicators (&gt; 3 snapshots), not just current vs. prior. Type 2 is correct.</div>
-      </div>
+
+    </div>
+
+    <div class="scd-skip reveal reveal-3">
+      <span class="scd-skip-tag">SCD 3 · explicitly skipped</span>
+      <span class="scd-skip-text">"Add column for prior value" loses the deeper trail. Socioeconomic snapshots span <b style="color:var(--paper);">more than three</b> ACS revisions — we need the full version chain, which is exactly what Type 2 gives.</span>
     </div>
   </section>
 
   <!-- 12 — BIG DATA JUSTIFICATION -->
   <section class="slide split" data-section="bigdata">
     <div class="left">
-      <div class="eyebrow reveal">§ 08 · The big-data component</div>
+      <div class="eyebrow reveal">§ 07 · The big-data component</div>
       <h2 class="headline reveal reveal-2">Spark for <em>volume.</em><br>S3 + Parquet for <em>variety.</em></h2>
       <p class="body muted reveal reveal-3">The rubric asks for one big-data technology with justification. We bring two — both visible in the diagram, both taught in class, both load-bearing rather than decorative.</p>
       <div class="refs reveal reveal-4">
@@ -1411,7 +1760,7 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="orch">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 09 · Orchestration</div>
+        <div class="eyebrow">§ 08 · Orchestration</div>
         <h2 class="headline">A small Glue Workflow, <em>shaped like an Airflow DAG.</em></h2>
       </div>
       <small class="fineprint">EventBridge fires the workflow · MWAA priced out ("not free" base) · Airflow on EC2 kept as alternative</small>
@@ -1502,7 +1851,7 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="bi">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 10 · The BI surface</div>
+        <div class="eyebrow">§ 09 · The BI surface</div>
         <h2 class="headline">Two dashboards, <em>two audiences.</em></h2>
       </div>
       <small class="fineprint">Built on QuickSight · SPICE-backed · refreshed an hour after the gold-layer job</small>
@@ -1518,7 +1867,7 @@ pre.mono .h{ color: var(--dusk); }
           <li><b>Choropleth.</b> Reports per community area, recoloured by crime category.</li>
           <li><b>Donut.</b> Distribution of primary crime types within the selected window.</li>
         </ul>
-        <p class="muted" style="font-size:12px;margin-top:14px;">Answers Q1 + Q3 of the dimensional design's acceptance test.</p>
+        <div class="placeholder">QuickSight screenshot · Overview</div>
       </div>
       <div class="panel b">
         <div class="who">Dashboard 02 · for the analyst</div>
@@ -1529,78 +1878,11 @@ pre.mono .h{ color: var(--dusk); }
           <li><b>SCD2 filter.</b> "Indicators as of the event date" — drives the location dimension's history.</li>
           <li><b>District trend.</b> Arrest rate by district over time, drillable to beat.</li>
         </ul>
-        <p class="muted" style="font-size:12px;margin-top:14px;">Answers Q2 + Q4 + Q5.</p>
+        <div class="placeholder">QuickSight screenshot · Detail</div>
       </div>
     </div>
   </section>
 
-  <!-- 15 — STATUS -->
-  <section class="slide full" data-section="status">
-    <div class="header reveal">
-      <div>
-        <div class="eyebrow">§ 11 · Where we stand</div>
-        <h2 class="headline">Built · in flight · <em>queued.</em></h2>
-      </div>
-      <small class="fineprint">Snapshot · 2026-05-10 · Branch <code style="font-family:var(--mono);">main</code></small>
-    </div>
-
-    <div class="timeline reveal reveal-2">
-      <div class="col done">
-        <h3>Already built</h3>
-        <ol>
-          <li><b>Terraform</b>S3 bronze bucket — encrypted, versioned, BlockPublicAccess on.</li>
-          <li><b>Lambda</b><code style="font-family:var(--mono);">data-warehouse-final-fetch-chicago-crime</code> — daily T-8 lookback.</li>
-          <li><b>EventBridge</b>Cron firing 02:00 America/Chicago.</li>
-          <li><b>Backfill</b>2019-01-01 → 2026-04-30 in <code style="font-family:var(--mono);">raw/chicaho_crime/ingest_date=…/</code>.</li>
-          <li><b>Design docs</b>Architecture + 4-step dimensional design committed to <code style="font-family:var(--mono);">docs/</code>.</li>
-        </ol>
-      </div>
-      <div class="col next">
-        <h3>What's next</h3>
-        <ol>
-          <li><b>RDS</b>Provision PostgreSQL 16, apply DDL into <code style="font-family:var(--mono);">raw_stg · dw_staging · dw</code>.</li>
-          <li><b>Lambdas</b>IUCR · socioeconomics · weather · arrests fetchers.</li>
-          <li><b>Catalog</b>Glue Crawler + databases for bronze and silver.</li>
-          <li><b>Spark</b>bronze → silver job, source-parameterised.</li>
-          <li><b>Spark</b>silver → gold SCD merge into RDS.</li>
-          <li><b>Workflow</b>EventBridge → Glue Workflow with referential-integrity asserts.</li>
-          <li><b>BI</b>Build Overview + Detail dashboards in QuickSight.</li>
-        </ol>
-      </div>
-    </div>
-  </section>
-
-  <!-- 16 — CLOSING ARGUMENT / RUBRIC -->
-  <section class="slide split" data-section="rubric">
-    <div class="left">
-      <div class="eyebrow reveal">§ 12 · The closing argument</div>
-      <h2 class="headline reveal reveal-2">Every rubric line, <em>covered.</em></h2>
-      <p class="body muted reveal reveal-3">The architecture and the schema were built to answer the rubric line-by-line — without inflating either. What we kept is justified by a need the data has; what we cut is justified by scale.</p>
-    </div>
-    <div class="right">
-      <div class="ledger reveal reveal-3" style="grid-template-columns: 28px 1.6fr 36px 1.4fr;">
-        <div class="row head">
-          <div class="cell">#</div><div class="cell">Rubric item</div><div class="cell">·</div><div class="cell">Where</div>
-        </div>
-        <div class="row"><div class="cell num">01</div><div class="cell role">Data sources</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">Five sources · CSV + JSON · §01</div></div>
-        <div class="row"><div class="cell num">02</div><div class="cell role">DW + ETL · 4-step · ≥ 1 fact · bus matrix · all dims SCD</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">§05–§07 + dimensional-design.md</div></div>
-        <div class="row"><div class="cell num">03</div><div class="cell role">Big-Data component with justification</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">Spark + S3 lake · §08</div></div>
-        <div class="row"><div class="cell num">04</div><div class="cell role">Automatic workflow</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">Glue Workflow DAG · §09</div></div>
-        <div class="row"><div class="cell num">05</div><div class="cell role">BI · ≥ 2 dashboards on QuickSight</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">Overview + Detail · §10</div></div>
-        <div class="row"><div class="cell num">06</div><div class="cell role">Two presentation videos</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">DE-side + BA-side recordings</div></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 17 — Q&A -->
-  <section class="slide questions" data-section="qa">
-    <div class="stamp reveal">?</div>
-    <div class="eyebrow reveal reveal-2">End of presentation</div>
-    <h1 class="display reveal reveal-3">Thank you.<br><em>Questions, please.</em></h1>
-    <p class="lede reveal reveal-4" style="margin-top: 22px; max-width: 44ch;">Repository: <code style="font-family: var(--mono); font-style: normal; font-size: 18px; color: var(--paper);">2190436-data-warehouse-final</code> &nbsp;·&nbsp; design docs in <code style="font-family: var(--mono); font-style: normal; font-size: 18px; color: var(--paper);">docs/</code>.</p>
-    <hr class="hair reveal reveal-5" style="margin-top: 36px; max-width: 44ch;"/>
-    <small class="fineprint reveal reveal-6">2190436 · 2190518 · 2025/2 · Chulalongkorn University</small>
-  </section>
 
 </main>
 
