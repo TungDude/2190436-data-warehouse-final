@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Crime, Conformed — A Chicago Data Warehouse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,30..100;1,9..144,300..900,30..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --ink: #0E0D0B;
+  --ink-2: #15140F;
+  --paper: #EFE9DD;
+  --paper-dim: #C7BFAF;
+  --paper-faint: rgba(239,233,221,.18);
+  --paper-hair: rgba(239,233,221,.10);
+  --ember: #E36B2D;       /* chicago sunset */
+  --ember-soft: #F3A572;
+  --dusk: #6E8DA0;        /* lake michigan dusk */
+  --moss: #8FA28A;
+  --warn: #D7B065;
+
+  --display: 'Fraunces', 'Times New Roman', serif;
+  --sans: 'Instrument Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --slide-pad-x: clamp(48px, 6vw, 112px);
+  --slide-pad-y: clamp(48px, 5vh, 88px);
+  --rule: 1px solid var(--paper-hair);
+}
+
+*,*::before,*::after{ box-sizing: border-box; }
+html,body{ margin:0; padding:0; height:100%; background: var(--ink); color: var(--paper); }
+body{
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.5;
+  letter-spacing: .005em;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- film grain + warm vignette --- */
+body::before{
+  content:"";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(227,107,45,.05), transparent 60%),
+    radial-gradient(80% 60% at 50% 100%, rgba(110,141,160,.05), transparent 60%);
+  mix-blend-mode: screen;
+}
+body::after{
+  content:"";
+  position: fixed; inset: -50%;
+  pointer-events: none;
+  z-index: 51;
+  opacity:.06;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.65'/></svg>");
+  animation: grain 6s steps(6) infinite;
+}
+@keyframes grain{
+  0%   { transform: translate(0,0); }
+  20%  { transform: translate(-3%, 2%); }
+  40%  { transform: translate(2%, -2%); }
+  60%  { transform: translate(-1%, 3%); }
+  80%  { transform: translate(3%, -1%); }
+  100% { transform: translate(0,0); }
+}
+
+/* --- bottom bar --- */
+.bottom-bar{
+  position: fixed; left: 0; right: 0; bottom: 0;
+  z-index: 60;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px clamp(20px, 3vw, 40px);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  border-top: var(--rule);
+  background: rgba(14,13,11,.55);
+  backdrop-filter: blur(8px);
+}
+.kbd{ display:inline-flex; align-items:center; gap:6px; }
+.kbd kbd{
+  font: 500 10px/1 var(--mono);
+  padding: 3px 6px; border:1px solid var(--paper-faint); border-radius: 4px; color: var(--paper-dim);
+  background: rgba(239,233,221,.04);
+}
+
+.slide-counter{ font-variant-numeric: tabular-nums; color: var(--paper); }
+.slide-counter span{ color: var(--paper-dim); }
+
+.progress-track{
+  position: fixed; left: 0; right: 0; bottom: 0; height: 2px;
+  background: transparent;
+  z-index: 70; pointer-events: none;
+}
+.progress-bar{
+  height: 100%; width: 100%;
+  transform-origin: left center; transform: scaleX(0);
+  background: linear-gradient(90deg, var(--ember), var(--ember-soft));
+  transition: transform .6s cubic-bezier(.7,.05,.2,1);
+}
+
+/* --- click zones --- */
+.click-zone{
+  position: fixed; top: 0; bottom: 56px; width: 18vw;
+  z-index: 55; cursor: pointer; user-select: none;
+}
+.click-prev{ left: 0; }
+.click-next{ right: 0; }
+.click-zone::after{
+  content:""; position: absolute; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--paper-hair);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; transition: opacity .25s ease;
+}
+.click-prev::after{ left: 24px; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23EFE9DD' stroke-width='1.4'><path d='M15 6 9 12l6 6'/></svg>") center/16px no-repeat rgba(14,13,11,.6); }
+.click-next::after{ right: 24px; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23EFE9DD' stroke-width='1.4'><path d='m9 6 6 6-6 6'/></svg>") center/16px no-repeat rgba(14,13,11,.6); }
+.click-zone:hover::after{ opacity: 1; }
+
+/* --- slides --- */
+.deck{ position: fixed; inset: 0; }
+.slide{
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 48px;
+  padding: var(--slide-pad-y) var(--slide-pad-x);
+  opacity: 0; visibility: hidden;
+  transition: opacity .55s ease;
+  display: grid;
+  overflow: hidden;
+}
+.slide.active{ opacity: 1; visibility: visible; }
+
+.slide.active .reveal{
+  animation: rise .8s cubic-bezier(.2,.7,.1,1) both;
+}
+.slide.active .reveal-2{ animation-delay: .08s; }
+.slide.active .reveal-3{ animation-delay: .16s; }
+.slide.active .reveal-4{ animation-delay: .24s; }
+.slide.active .reveal-5{ animation-delay: .32s; }
+.slide.active .reveal-6{ animation-delay: .40s; }
+.slide.active .reveal-7{ animation-delay: .48s; }
+@keyframes rise{
+  from{ opacity: 0; transform: translateY(14px); filter: blur(2px); }
+  to  { opacity: 1; transform: translateY(0);    filter: blur(0); }
+}
+
+/* eyebrow / section labels */
+.eyebrow{
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: var(--ember);
+  display: inline-flex; align-items: center; gap: 12px;
+  padding-bottom: 10px;
+  position: relative;
+}
+.eyebrow::before{
+  content:""; width: 28px; height: 1px; background: var(--ember);
+}
+
+h1.display{
+  font-family: var(--display);
+  font-weight: 380;
+  font-style: normal;
+  font-size: clamp(48px, 8.4vw, 132px);
+  line-height: .95;
+  letter-spacing: -.02em;
+  margin: 0;
+  font-variation-settings: "opsz" 144, "SOFT" 50;
+}
+h1.display em{
+  font-style: italic;
+  font-weight: 380;
+  color: var(--ember-soft);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+}
+
+h2.headline{
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(34px, 4.6vw, 68px);
+  line-height: 1.04;
+  letter-spacing: -.014em;
+  margin: 0 0 18px 0;
+  font-variation-settings: "opsz" 96, "SOFT" 50;
+  max-width: 22ch;
+}
+h2.headline em{ font-style: italic; color: var(--ember-soft); font-weight: 400; }
+
+h3.minor{
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(22px, 2.2vw, 32px);
+  line-height: 1.1;
+  letter-spacing: -.005em;
+  margin: 0 0 10px 0;
+}
+
+p.lede{
+  font-family: var(--display);
+  font-weight: 360;
+  font-style: italic;
+  font-size: clamp(20px, 1.9vw, 28px);
+  line-height: 1.36;
+  color: var(--paper);
+  max-width: 38ch;
+  margin: 0 0 26px 0;
+  font-variation-settings: "opsz" 36, "SOFT" 80;
+}
+
+p, li{ color: var(--paper); }
+p.body{
+  max-width: 56ch;
+  color: var(--paper);
+  margin: 0 0 14px 0;
+}
+p.muted, .muted{ color: var(--paper-dim); }
+small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--paper-dim); }
+
+.hair{ display:block; height:1px; background: var(--paper-faint); border:0; margin: 18px 0; }
+.thicc{ display:block; height:1px; background: var(--paper); border:0; margin: 18px 0; opacity: .4; }
+
+.kicker{
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+
+.tag{
+  display:inline-flex; align-items:center; gap: 6px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  padding: 5px 9px;
+  border:1px solid var(--paper-hair);
+  border-radius: 999px; color: var(--paper-dim);
+}
+.tag.ember{ color: var(--ember); border-color: rgba(227,107,45,.4); }
+.tag.dusk{ color: var(--dusk); border-color: rgba(110,141,160,.4); }
+.tag.moss{ color: var(--moss); border-color: rgba(143,162,138,.4); }
+.tag .pip{ width:6px;height:6px;border-radius:50%; background: currentColor; }
+
+/* === SLIDE LAYOUTS === */
+
+/* cover */
+.slide.cover{
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 32px;
+}
+.cover .titleblock{
+  max-width: 44ch;
+  position: relative;
+  z-index: 2;
+}
+.cover .titleblock .eyebrow{ margin-bottom: 22px; }
+.cover .titleblock h1{ margin-bottom: 28px; }
+.cover .meta{
+  display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 28px;
+  border-top: 1px solid var(--paper-faint);
+  padding-top: 22px; margin-top: 36px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--paper-dim);
+  position: relative;
+  z-index: 2;
+}
+.cover .meta b{ display:block; color: var(--paper); font-family: var(--sans); font-weight: 500; font-size: 14px; letter-spacing: 0; text-transform: none; margin-top: 4px; }
+.cover .ghost{
+  position: absolute;
+  font-family: var(--display); font-style: italic;
+  font-size: clamp(120px, 28vw, 420px);
+  line-height: .8; letter-spacing: -.04em;
+  color: rgba(239,233,221,.04);
+  bottom: 18%; right: -.04em;
+  pointer-events: none; user-select: none;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  z-index: 1;
+}
+
+/* split (left text / right detail) */
+.slide.split{
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: clamp(36px, 5vw, 80px);
+  align-content: center;
+}
+.slide.split .left{ display:flex; flex-direction: column; justify-content: center; }
+.slide.split .right{ display:flex; flex-direction: column; justify-content: center; min-width: 0; }
+
+/* full (single column, content-heavy) */
+.slide.full{
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+.slide.full .header{ display:flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+.slide.full .header h2{ margin: 6px 0 0 0; }
+
+/* divider (section break) */
+.slide.divider{
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.slide.divider .num{
+  position:absolute; top: var(--slide-pad-y); left: var(--slide-pad-x);
+  font-family: var(--display); font-style: italic;
+  font-size: clamp(280px, 44vw, 720px);
+  line-height: .8; letter-spacing: -.04em;
+  color: rgba(239,233,221,.05);
+  pointer-events:none; user-select:none;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+}
+.slide.divider h1.display{ position: relative; }
+
+/* quote */
+.slide.quote{ align-content: center; }
+.slide.quote blockquote{
+  margin:0; max-width: 22ch;
+  font-family: var(--display); font-weight: 380; font-style: italic;
+  font-size: clamp(40px, 5.4vw, 88px);
+  line-height: 1.04;
+  font-variation-settings: "opsz" 144, "SOFT" 80;
+}
+.slide.quote blockquote .mark{ color: var(--ember); }
+.slide.quote .attrib{ margin-top: 28px; font-family: var(--mono); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--paper-dim); }
+
+/* === COMPONENTS === */
+
+.scoreboard{
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0,1fr));
+  border-top: var(--rule); border-bottom: var(--rule);
+  margin: 24px 0;
+}
+.scoreboard .cell{
+  padding: 22px 18px 22px 0;
+  border-right: var(--rule);
+}
+.scoreboard .cell:last-child{ border-right: 0; }
+.scoreboard .cell .pct{
+  font-family: var(--display); font-style: italic;
+  font-size: clamp(32px, 3vw, 44px); line-height: 1;
+  color: var(--ember-soft);
+  font-variation-settings: "opsz" 96, "SOFT" 100;
+}
+.scoreboard .cell .lbl{
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--paper-dim); margin-top: 10px;
+}
+.scoreboard .cell .ttl{
+  font-family: var(--sans); font-size: 14px; color: var(--paper); margin-top: 6px; line-height: 1.3;
+}
+
+/* source ledger */
+.ledger{
+  display: grid;
+  grid-template-columns: 28px 1.4fr 1fr 1fr 1.4fr;
+  gap: 0;
+  border-top: var(--rule);
+}
+.ledger .row{
+  display: contents;
+}
+.ledger .cell{
+  padding: 16px 18px;
+  border-bottom: var(--rule);
+  font-size: 14px;
+  display:flex; align-items: center;
+}
+.ledger .row.head .cell{
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-dim);
+  border-bottom: 1px solid var(--paper);
+  padding-top: 12px; padding-bottom: 12px;
+}
+.ledger .num{ font-family: var(--mono); color: var(--paper-dim); font-size: 12px; }
+.ledger .src{ font-family: var(--display); font-size: 18px; font-weight: 500; }
+.ledger .src em{ font-style: italic; color: var(--ember-soft); font-weight: 400; display:block; font-size: 12px; font-family: var(--mono); letter-spacing: .12em; text-transform: uppercase; margin-top: 4px; }
+.ledger .fmt{ font-family: var(--mono); font-size: 12px; color: var(--paper-dim); letter-spacing: .08em; text-transform: uppercase; }
+.ledger .rows{ font-family: var(--display); font-style: italic; font-size: 22px; color: var(--paper); }
+.ledger .role{ color: var(--paper); }
+.ledger .row.implemented .cell{ background: linear-gradient(90deg, rgba(227,107,45,.06), transparent 60%); }
+
+/* medallion */
+.medallion{
+  display: grid; grid-template-columns: 1fr 28px 1fr 28px 1fr;
+  gap: 0; align-items: stretch; margin-top: 12px;
+}
+.medallion .arrow{
+  display:flex; align-items: center; justify-content: center; color: var(--paper-faint);
+  font-family: var(--mono); font-size: 22px;
+}
+.medallion .layer{
+  border: 1px solid var(--paper-faint);
+  background: rgba(239,233,221,.02);
+  padding: 26px 22px;
+  position: relative;
+  overflow: hidden;
+}
+.medallion .layer .lbl{
+  font-family: var(--mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--paper-dim);
+}
+.medallion .layer .name{
+  font-family: var(--display); font-weight: 380; font-style: italic;
+  font-size: clamp(28px, 2.8vw, 40px); line-height: 1; margin: 6px 0 14px 0;
+  font-variation-settings: "opsz" 96, "SOFT" 80;
+}
+.medallion .layer.bronze .name{ color: #C97D3A; }
+.medallion .layer.silver .name{ color: #B7BDC0; }
+.medallion .layer.gold   .name{ color: var(--ember-soft); }
+.medallion .layer p{ font-size: 13px; color: var(--paper-dim); margin: 0 0 10px 0; }
+.medallion .layer code{
+  font-family: var(--mono); font-size: 11.5px; color: var(--paper);
+  display: block;
+  background: rgba(0,0,0,.35);
+  padding: 8px 10px; border-radius: 4px;
+  border: 1px solid var(--paper-hair);
+  margin-top: 10px;
+  word-break: break-all;
+}
+
+/* AWS service grid */
+.svc{
+  display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 0; border-top: var(--rule); border-left: var(--rule);
+  margin-top: 14px;
+}
+.svc .item{
+  border-right: var(--rule); border-bottom: var(--rule);
+  padding: 18px 18px 22px;
+  position: relative;
+}
+.svc .item .name{
+  font-family: var(--display); font-weight: 500; font-size: 18px; line-height: 1.1; margin: 8px 0 4px 0;
+}
+.svc .item .role{ font-size: 13px; color: var(--paper-dim); margin: 0 0 8px 0; line-height: 1.4; }
+.svc .item .lect{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ember); }
+.svc .item .pin{
+  position:absolute; top: 12px; right: 12px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--paper-dim);
+}
+
+/* schema diagram */
+.schema{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  grid-template-rows: repeat(3, minmax(0, auto));
+  gap: 14px;
+}
+.schema .node{
+  border: 1px solid var(--paper-faint);
+  background: rgba(239,233,221,.02);
+  padding: 14px 16px 16px;
+  min-height: 0;
+}
+.schema .node .lbl{ font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--paper-dim); }
+.schema .node .nm{ font-family: var(--display); font-style: italic; font-size: 22px; line-height: 1; margin: 6px 0 8px 0; color: var(--paper); }
+.schema .node .attrs{ font-family: var(--mono); font-size: 11px; line-height: 1.55; color: var(--paper-dim); }
+.schema .node.fact{
+  grid-column: 2; grid-row: 2;
+  border: 1px solid var(--ember);
+  background:
+    radial-gradient(80% 70% at 50% 0%, rgba(227,107,45,.18), transparent 70%),
+    rgba(227,107,45,.04);
+}
+.schema .node.fact .lbl{ color: var(--ember); }
+.schema .node.fact .nm{ color: var(--ember-soft); font-weight: 500; }
+.schema .node.fact .attrs{ color: var(--paper); }
+
+.schema .lines{
+  position: absolute; inset:0; pointer-events: none;
+}
+
+/* bus matrix */
+.bus{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 14px;
+}
+.bus th, .bus td{
+  border: 1px solid var(--paper-hair);
+  padding: 10px 12px;
+  text-align: center;
+  vertical-align: middle;
+}
+.bus thead th{
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-dim);
+  font-weight: 400;
+  background: rgba(239,233,221,.03);
+  text-align: center;
+}
+.bus tbody th{
+  text-align: left;
+  font-family: var(--display); font-weight: 500; font-size: 16px; color: var(--paper);
+  background: rgba(239,233,221,.02);
+  font-style: italic;
+  white-space: nowrap;
+}
+.bus tbody th em{ display:block; font-family: var(--mono); font-size: 10.5px; font-style: normal; color: var(--paper-dim); letter-spacing: .12em; text-transform: uppercase; margin-top: 4px; font-weight: 400; }
+.bus td.tick{ color: var(--ember); font-family: var(--mono); font-size: 16px; }
+.bus td.dot{ color: var(--paper-faint); }
+
+/* SCD list */
+.scd{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 36px;
+  row-gap: 0;
+}
+.scd .row{
+  display: grid;
+  grid-template-columns: 1.4fr auto;
+  align-items: baseline;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: var(--rule);
+}
+.scd .dim{
+  font-family: var(--display); font-style: italic; font-size: 18px; font-weight: 500;
+}
+.scd .type{
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ember); white-space: nowrap;
+}
+.scd .why{
+  grid-column: 1 / -1; font-size: 12.5px; color: var(--paper-dim); margin-top: 4px; line-height: 1.5;
+}
+
+/* DAG */
+.dag{
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  margin-top: 14px;
+}
+.dag .step{
+  border: 1px solid var(--paper-faint);
+  background: rgba(239,233,221,.02);
+  padding: 14px;
+  position: relative;
+  display:flex; flex-direction: column; gap: 6px;
+}
+.dag .step .n{
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--paper-dim); text-transform: uppercase;
+}
+.dag .step .t{
+  font-family: var(--display); font-weight: 500; font-size: 16px; line-height: 1.15; color: var(--paper);
+}
+.dag .step .d{ font-size: 12px; color: var(--paper-dim); line-height: 1.5; }
+.dag .step.spark{ border-color: rgba(227,107,45,.4); background: rgba(227,107,45,.04); }
+.dag .step.spark .t{ color: var(--ember-soft); }
+.dag .arrow{ display:none; }
+
+/* dashboards */
+.dash{
+  display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 14px;
+}
+.dash .panel{
+  border: 1px solid var(--paper-faint);
+  padding: 22px 24px;
+  background:
+    linear-gradient(180deg, rgba(227,107,45,.03), transparent 30%),
+    rgba(239,233,221,.02);
+}
+.dash .panel.b{
+  background:
+    linear-gradient(180deg, rgba(110,141,160,.05), transparent 30%),
+    rgba(239,233,221,.02);
+}
+.dash .panel .who{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--paper-dim); }
+.dash .panel .nm{ font-family: var(--display); font-style: italic; font-size: 28px; margin: 4px 0 10px 0; }
+.dash .panel.a .nm{ color: var(--ember-soft); }
+.dash .panel.b .nm{ color: var(--dusk); }
+.dash .panel ul{ margin: 0; padding-left: 18px; }
+.dash .panel li{ font-size: 13.5px; color: var(--paper); margin: 6px 0; }
+.dash .panel li::marker{ color: var(--paper-dim); }
+.dash .panel li b{ color: var(--paper); font-weight: 500; }
+
+/* status timeline */
+.timeline{
+  display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin-top: 18px;
+}
+.timeline .col h3{ font-family: var(--display); font-weight: 500; font-size: 22px; margin: 0 0 12px 0; font-style: italic; }
+.timeline .col.done h3{ color: var(--moss); }
+.timeline .col.next h3{ color: var(--ember-soft); }
+.timeline ol{ list-style: none; padding: 0; margin: 0; counter-reset: t; }
+.timeline ol li{
+  position: relative; padding: 12px 0 12px 38px;
+  border-bottom: var(--rule);
+  font-size: 14px; color: var(--paper);
+  counter-increment: t;
+}
+.timeline ol li::before{
+  content: counter(t, decimal-leading-zero);
+  position: absolute; left: 0; top: 13px;
+  font-family: var(--mono); font-size: 11px; color: var(--paper-dim); letter-spacing: .1em;
+}
+.timeline .done ol li::before{ color: var(--moss); }
+.timeline .next ol li::before{ color: var(--ember); }
+.timeline .done ol li{ text-decoration: none; }
+.timeline .done ol li b{ display:block; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--moss); margin-bottom: 2px; }
+.timeline .next ol li b{ display:block; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ember); margin-bottom: 2px; }
+
+/* big stats */
+.stats{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 0;
+  border-top: var(--rule); border-bottom: var(--rule);
+  margin-top: 22px;
+}
+.stats .stat{
+  padding: 22px 24px 22px 0;
+  border-right: var(--rule);
+}
+.stats .stat:last-child{ border-right: 0; padding-right: 0; }
+.stats .stat .num{
+  font-family: var(--display); font-style: italic; font-weight: 380;
+  font-size: clamp(40px, 4.6vw, 72px); line-height: .95;
+  color: var(--paper);
+  font-variation-settings: "opsz" 144, "SOFT" 80;
+}
+.stats .stat .num em{ color: var(--ember-soft); font-style: italic; }
+.stats .stat .lbl{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--paper-dim); margin-top: 10px; }
+
+/* small print refs */
+.refs{
+  display:flex; gap: 14px; flex-wrap: wrap;
+  margin-top: 22px;
+}
+.refs .ref{
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--paper-dim);
+  padding: 4px 0; border-top: 1px solid var(--paper-hair); padding-top: 8px; min-width: 140px;
+}
+.refs .ref b{ color: var(--paper); display:block; font-weight: 400; font-family: var(--display); font-style: italic; font-size: 14px; letter-spacing: 0; text-transform: none; margin-top: 2px; }
+
+/* questions slide */
+.slide.questions{
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.slide.questions .stamp{
+  position:absolute; top: 50%; right: var(--slide-pad-x); transform: translateY(-50%);
+  font-family: var(--display); font-style: italic;
+  font-size: clamp(160px, 22vw, 360px);
+  line-height: 1; color: rgba(227,107,45,.10);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  pointer-events: none; user-select: none;
+}
+
+/* mono code blocks */
+pre.mono{
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--paper);
+  background: rgba(0,0,0,.35);
+  border: 1px solid var(--paper-hair);
+  padding: 18px 20px;
+  margin: 0;
+  white-space: pre;
+  overflow: auto;
+  border-radius: 2px;
+}
+pre.mono .c{ color: var(--paper-dim); }
+pre.mono .k{ color: var(--ember-soft); }
+pre.mono .h{ color: var(--dusk); }
+
+/* helpers */
+.row-gap{ display:flex; gap: 8px; flex-wrap: wrap; }
+.cluster{ display:flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+
+/* for cards used inside split-right */
+.cards{
+  display:grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.card{
+  border: 1px solid var(--paper-faint);
+  padding: 16px 16px 18px;
+  background: rgba(239,233,221,.02);
+  position: relative;
+}
+.card .h{ font-family: var(--display); font-style: italic; font-size: 18px; margin: 0 0 6px; }
+.card .b{ font-size: 13px; color: var(--paper-dim); line-height: 1.5; margin: 0; }
+.card .num{ position:absolute; top: 12px; right: 12px; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--paper-dim); }
+
+@media (max-width: 1100px){
+  .scoreboard{ grid-template-columns: repeat(3, 1fr); }
+  .stats{ grid-template-columns: repeat(2, 1fr); }
+  .svc{ grid-template-columns: repeat(2, 1fr); }
+  .dag{ grid-template-columns: repeat(3, 1fr); }
+  .schema{ grid-template-columns: repeat(2, 1fr); }
+  .schema .node.fact{ grid-column: auto; grid-row: auto; }
+  .slide.split{ grid-template-columns: 1fr; }
+  .scd{ grid-template-columns: 1fr; }
+  .timeline{ grid-template-columns: 1fr; }
+  .dash{ grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="bottom-bar">
+  <div class="kbd">
+    <kbd>←</kbd><kbd>→</kbd>&nbsp;Navigate &nbsp;·&nbsp;
+    <kbd>Space</kbd>&nbsp;Forward &nbsp;·&nbsp;
+    <kbd>F</kbd>&nbsp;Fullscreen
+  </div>
+  <div class="slide-counter"><span>Slide</span> <b id="cnum">01</b> / <span id="ctot">17</span></div>
+</div>
+
+<div class="progress-track"><div class="progress-bar" id="pbar"></div></div>
+
+<div class="click-zone click-prev" aria-label="Previous"></div>
+<div class="click-zone click-next" aria-label="Next"></div>
+
+<main class="deck" id="deck">
+
+  <!-- 01 — COVER -->
+  <section class="slide cover" data-section="cover">
+    <div class="ghost reveal reveal-5">crime,</div>
+
+    <div class="titleblock">
+      <div class="eyebrow reveal">Final Project · 2025/2 · A study in dimensional modelling</div>
+      <h1 class="display reveal reveal-2">Crime,<br><em>Conformed.</em></h1>
+      <p class="lede reveal reveal-3">A traditional data warehouse and a modern data lake, taught to coexist over seven years of Chicago police records.</p>
+    </div>
+
+    <div class="meta reveal reveal-4">
+      <div>Course<b>2190436 · 2190518</b></div>
+      <div>Institution<b>Chulalongkorn University</b></div>
+      <div>Window<b>2018 — 2024</b></div>
+      <div>Stack<b>AWS · Spark · PostgreSQL · QuickSight</b></div>
+    </div>
+  </section>
+
+  <!-- 02 — THE BRIEF -->
+  <section class="slide split" data-section="brief">
+    <div class="left">
+      <div class="eyebrow reveal">§ 01 · The brief</div>
+      <h2 class="headline reveal reveal-2">A full data-warehouse pipeline on AWS, with one foot <em>in big data.</em></h2>
+      <p class="body reveal reveal-3 muted">Twenty percent of the course grade. Six rubric line-items spanning data acquisition, dimensional design, big-data processing, automation, BI, and presentation. The architecture has to honour both halves of the syllabus — Kimball on the left, Spark on the right.</p>
+      <div class="refs reveal reveal-4">
+        <div class="ref">Source<b>requirements/Project_DW_Big_Data_Implementation_2025.md</b></div>
+        <div class="ref">Deliverable<b>Two YouTube videos · One Google Drive link</b></div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="kicker reveal reveal-2">Score · 20 % of final grade</div>
+      <div class="scoreboard reveal reveal-3">
+        <div class="cell"><div class="pct">2%</div><div class="lbl">Item 01</div><div class="ttl">Data Sources</div></div>
+        <div class="cell"><div class="pct">4%</div><div class="lbl">Item 02</div><div class="ttl">Data Warehouse + ETL</div></div>
+        <div class="cell"><div class="pct">4%</div><div class="lbl">Item 03</div><div class="ttl">Big-Data Component</div></div>
+        <div class="cell"><div class="pct">1%</div><div class="lbl">Item 04</div><div class="ttl">Automatic Workflow</div></div>
+        <div class="cell"><div class="pct">4%</div><div class="lbl">Item 05</div><div class="ttl">BI Dashboards</div></div>
+        <div class="cell"><div class="pct">5%</div><div class="lbl">Item 06</div><div class="ttl">Presentation × 2</div></div>
+      </div>
+      <div class="cluster reveal reveal-4" style="margin-top: 22px;">
+        <span class="tag ember"><span class="pip"></span>≥ 1 fact, atomic grain</span>
+        <span class="tag ember"><span class="pip"></span>conformed bus matrix</span>
+        <span class="tag ember"><span class="pip"></span>every dim implements an SCD</span>
+        <span class="tag dusk"><span class="pip"></span>Spark or Data Lake or KV</span>
+        <span class="tag dusk"><span class="pip"></span>Glue Scheduler / Airflow</span>
+        <span class="tag moss"><span class="pip"></span>QuickSight, ≥ 2 dashboards</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 — THE DATA -->
+  <section class="slide full" data-section="data">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 02 · The data</div>
+        <h2 class="headline">Five sources, two formats, <em>one city.</em></h2>
+      </div>
+      <small class="fineprint">Comfortably above the 100 000-row threshold; covers CSV and JSON to satisfy the variety requirement.</small>
+    </div>
+
+    <div class="ledger reveal reveal-2">
+      <div class="row head">
+        <div class="cell">#</div>
+        <div class="cell">Dataset</div>
+        <div class="cell">Format</div>
+        <div class="cell">Rows</div>
+        <div class="cell">Role in the warehouse</div>
+      </div>
+      <div class="row implemented">
+        <div class="cell num">01</div>
+        <div class="cell"><div class="src">Chicago Crimes 2018 → present<em>Socrata · ijzp-q8t2</em></div></div>
+        <div class="cell fmt">CSV</div>
+        <div class="cell rows">~ 1.5 M</div>
+        <div class="cell role">Primary fact source. One row per reported incident.</div>
+      </div>
+      <div class="row">
+        <div class="cell num">02</div>
+        <div class="cell"><div class="src">IUCR Crime Codes<em>Socrata · c7ck-438e</em></div></div>
+        <div class="cell fmt">CSV</div>
+        <div class="cell rows">~ 400</div>
+        <div class="cell role">Crime-type lookup. Drives <code style="font-family:var(--mono);font-size:11.5px;color:var(--paper);">dim_crime_type</code> SCD2.</div>
+      </div>
+      <div class="row">
+        <div class="cell num">03</div>
+        <div class="cell"><div class="src">Community-Area Socioeconomics<em>Socrata · kn9c-c2s2</em></div></div>
+        <div class="cell fmt">CSV</div>
+        <div class="cell rows">77 / snap.</div>
+        <div class="cell role">Location enrichment, multiple snapshots → SCD2 candidate.</div>
+      </div>
+      <div class="row">
+        <div class="cell num">04</div>
+        <div class="cell"><div class="src">Chicago Hourly Weather<em>Open-Meteo · archive-api</em></div></div>
+        <div class="cell fmt">JSON</div>
+        <div class="cell rows">~ 365 k</div>
+        <div class="cell role">Hourly enrichment, joined to crimes by date + hour.</div>
+      </div>
+      <div class="row">
+        <div class="cell num">05</div>
+        <div class="cell"><div class="src">Chicago Police Arrests <span class="tag dusk" style="margin-left:8px;">optional</span><em>Socrata · dpt3-jri9</em></div></div>
+        <div class="cell fmt">CSV</div>
+        <div class="cell rows">~ 700 k</div>
+        <div class="cell role">Second business process for the bus matrix.</div>
+      </div>
+    </div>
+
+    <div class="stats reveal reveal-3">
+      <div class="stat"><div class="num"><em>~ 2.5</em>M</div><div class="lbl">Total rows under management</div></div>
+      <div class="stat"><div class="num">7 yrs</div><div class="lbl">2018-01-01 → present</div></div>
+      <div class="stat"><div class="num">5</div><div class="lbl">Independent ingest pipelines</div></div>
+      <div class="stat"><div class="num">2</div><div class="lbl">Distinct landing formats — CSV + JSON</div></div>
+    </div>
+  </section>
+
+  <!-- 04 — DIVIDER · ARCHITECTURE -->
+  <section class="slide divider" data-section="arch">
+    <div class="num reveal">02</div>
+    <div class="eyebrow reveal reveal-2">Section two</div>
+    <h1 class="display reveal reveal-3"><em>Architecture</em><br>at rest.</h1>
+    <p class="lede reveal reveal-4" style="margin-top: 22px;">A medallion lakehouse on the lake side; a Kimball star on the warehouse side. Glue is the bridge.</p>
+  </section>
+
+  <!-- 05 — MEDALLION -->
+  <section class="slide full" data-section="medallion">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 03 · Medallion zoning</div>
+        <h2 class="headline">Bronze, silver, <em>gold</em> — the same names the lecture uses.</h2>
+      </div>
+      <small class="fineprint">Lecture 13, Slide 47 · Lakehouse design pattern</small>
+    </div>
+
+    <div class="medallion reveal reveal-2">
+      <div class="layer bronze">
+        <div class="lbl">Layer 01 · Lake</div>
+        <div class="name">Bronze</div>
+        <p>Immutable landing. CSV + JSON, exactly as the publishers ship them. Append-only, partitioned by ingest date.</p>
+        <p class="muted" style="font-size:12px;">No transformation. Versioning on, encryption on. Re-fetches go to a new partition.</p>
+        <code>s3://…-raw/raw/&lt;source&gt;/ingest_date=YYYY-MM-DD/</code>
+      </div>
+      <div class="arrow">→</div>
+      <div class="layer silver">
+        <div class="lbl">Layer 02 · Lake</div>
+        <div class="name">Silver</div>
+        <p>Type-cast, deduplicated, normalised. Parquet for columnar reads. Crawled into the Glue Catalog.</p>
+        <p class="muted" style="font-size:12px;">Athena-queryable. Spark writes; Athena reads; QuickSight may also point here for ad-hoc.</p>
+        <code>s3://…-raw/standardized/&lt;source&gt;/year=YYYY/</code>
+      </div>
+      <div class="arrow">→</div>
+      <div class="layer gold">
+        <div class="lbl">Layer 03 · Warehouse</div>
+        <div class="name">Gold</div>
+        <p>Dimensional star schema in RDS PostgreSQL 16. SCD-aware merges, surrogate keys, conformed dimensions.</p>
+        <p class="muted" style="font-size:12px;">The presentation area in Kimball's component model. QuickSight talks to this.</p>
+        <code>RDS · schema dw.* (fact_crime · dim_*)</code>
+      </div>
+    </div>
+
+    <hr class="hair"/>
+    <p class="body muted reveal reveal-3" style="max-width: 90ch;">
+      The course teaches both halves of this picture. <b style="color:var(--paper);">Lecture 01 Slide 14</b> defines the Source → Staging → Presentation → Access component model; <b style="color:var(--paper);">Lecture 07 Slide 188</b> shows the lakehouse stack of S3 + Catalog + Spark + Athena. Bronze + silver are the lakehouse, gold is the warehouse, and the two sit side-by-side instead of in opposition — exactly the "DW and DL used together" pattern from <b style="color:var(--paper);">Lecture 01 Slide 25</b>.
+    </p>
+  </section>
+
+  <!-- 06 — END-TO-END FLOW -->
+  <section class="slide full" data-section="flow">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 04 · End-to-end</div>
+        <h2 class="headline">From a public API to a <em>QuickSight pixel.</em></h2>
+      </div>
+      <small class="fineprint">Each step on this DAG is a managed AWS primitive — no standing servers.</small>
+    </div>
+
+    <div class="dag reveal reveal-2">
+      <div class="step">
+        <div class="n">01</div>
+        <div class="t">EventBridge<br>Scheduler</div>
+        <div class="d">Daily 02:00 America/Chicago. Fans out to five ingest Lambdas in parallel.</div>
+      </div>
+      <div class="step">
+        <div class="n">02</div>
+        <div class="t">Lambda ×5<br>Fetchers</div>
+        <div class="d">Thin HTTP-GET workers. Write raw payloads to S3 bronze. No transform.</div>
+      </div>
+      <div class="step">
+        <div class="n">03</div>
+        <div class="t">Glue Crawler →<br>Data Catalog</div>
+        <div class="d">Discovers new bronze partitions. Catalog acts as the Hive metastore.</div>
+      </div>
+      <div class="step spark">
+        <div class="n">04</div>
+        <div class="t">Glue PySpark<br>bronze → silver</div>
+        <div class="d">Cast types, dedupe by source PK on latest <code style="font-family:var(--mono);font-size:11px;">updated_on</code>, write Parquet.</div>
+      </div>
+      <div class="step spark">
+        <div class="n">05</div>
+        <div class="t">Glue PySpark<br>silver → gold</div>
+        <div class="d">Surrogate-key assign, SCD merge, null → "Unknown" coalesce, upsert into RDS.</div>
+      </div>
+      <div class="step">
+        <div class="n">06</div>
+        <div class="t">QuickSight<br>SPICE refresh</div>
+        <div class="d">Imports <code style="font-family:var(--mono);font-size:11px;">dw.*</code> via JDBC. Two dashboards rebuild within the hour.</div>
+      </div>
+    </div>
+
+    <hr class="hair"/>
+
+    <div class="row-gap reveal reveal-3" style="gap: 10px;">
+      <span class="tag"><span class="pip"></span>S3</span>
+      <span class="tag"><span class="pip"></span>Lambda</span>
+      <span class="tag"><span class="pip"></span>EventBridge Scheduler</span>
+      <span class="tag"><span class="pip"></span>Glue Crawler</span>
+      <span class="tag"><span class="pip"></span>Glue Data Catalog</span>
+      <span class="tag ember"><span class="pip"></span>Glue ETL · PySpark</span>
+      <span class="tag"><span class="pip"></span>RDS PostgreSQL 16</span>
+      <span class="tag"><span class="pip"></span>Athena <small style="text-transform:none;letter-spacing:0;opacity:.7;">(supporting)</small></span>
+      <span class="tag dusk"><span class="pip"></span>QuickSight</span>
+    </div>
+  </section>
+
+  <!-- 07 — AWS SERVICES + WHY -->
+  <section class="slide full" data-section="services">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 05 · The stack</div>
+        <h2 class="headline">Eleven services, <em>chosen with restraint.</em></h2>
+      </div>
+      <small class="fineprint">Every cell below is annotated with the lecture it traces back to.</small>
+    </div>
+
+    <div class="svc reveal reveal-2">
+      <div class="item"><div class="pin">01</div><div class="lect">Lec 07 · 09</div><div class="name">Amazon S3</div><div class="role">Bronze + Silver storage. The data lake.</div></div>
+      <div class="item"><div class="pin">02</div><div class="lect">—</div><div class="name">AWS Lambda</div><div class="role">One-per-source ingest workers. &lt; 50 MB/day fits Lambda cleanly.</div></div>
+      <div class="item"><div class="pin">03</div><div class="lect">Lec 13</div><div class="name">EventBridge Scheduler</div><div class="role">Native cron. Already firing the Chicago Crime fetcher.</div></div>
+      <div class="item"><div class="pin">04</div><div class="lect">Lec 07</div><div class="name">Glue Data Catalog</div><div class="role">Hive-compatible metastore for the lake.</div></div>
+      <div class="item"><div class="pin">05</div><div class="lect">Lec 09</div><div class="name">Glue Crawler</div><div class="role">Schema discovery. Saves writing DDL for raw files.</div></div>
+      <div class="item"><div class="pin">06</div><div class="lect">Lec 11</div><div class="name">Glue ETL · PySpark</div><div class="role">The big-data component. Bronze→Silver and Silver→Gold transforms.</div></div>
+      <div class="item"><div class="pin">07</div><div class="lect">Lec 01 · 04</div><div class="name">RDS PostgreSQL 16</div><div class="role">Gold layer. Star schema with SCD merges, identity surrogates.</div></div>
+      <div class="item"><div class="pin">08</div><div class="lect">Lec 07</div><div class="name">Amazon Athena</div><div class="role">Ad-hoc SQL on silver. Free per-query model — used for validation.</div></div>
+      <div class="item"><div class="pin">09</div><div class="lect">Lec 13</div><div class="name">Glue Workflows</div><div class="role">Crawler → Spark → Spark → asserts. Picked over MWAA for cost.</div></div>
+      <div class="item"><div class="pin">10</div><div class="lect">Lec 01</div><div class="name">Amazon QuickSight</div><div class="role">Two SPICE-backed dashboards, RDS connector.</div></div>
+      <div class="item"><div class="pin">11</div><div class="lect">—</div><div class="name">IAM · KMS · VPC</div><div class="role">Least-privilege roles, SSE on S3 + RDS, private subnets.</div></div>
+      <div class="item" style="background: rgba(227,107,45,.04); border-color: rgba(227,107,45,.3);">
+        <div class="pin">∅</div><div class="lect" style="color: var(--paper-dim);">Anti-goals</div>
+        <div class="name" style="color: var(--paper-dim); font-style: italic;">Redshift · MSK · MWAA · DMS · ElastiCache · EMR · Lake Formation</div>
+        <div class="role">Each rejected with a written reason. Restraint is part of the design.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 — DIVIDER · WAREHOUSE -->
+  <section class="slide divider" data-section="dw">
+    <div class="num reveal">03</div>
+    <div class="eyebrow reveal reveal-2">Section three</div>
+    <h1 class="display reveal reveal-3">The <em>warehouse</em>,<br>by the book.</h1>
+    <p class="lede reveal reveal-4" style="margin-top: 22px;">Kimball's four-step process, applied step-by-step, with every decision traced back to a lecture slide.</p>
+  </section>
+
+  <!-- 09 — STAR SCHEMA VISUAL -->
+  <section class="slide split" data-section="star">
+    <div class="left">
+      <div class="eyebrow reveal">§ 06 · Star schema</div>
+      <h2 class="headline reveal reveal-2">One fact at the centre. <em>Six dimensions</em> around it.</h2>
+      <p class="body muted reveal reveal-3">The grain is one row per reported incident, identified by Chicago's stable <code style="font-family:var(--mono);">id</code>. Two role-playing date FKs (occurrence + report) reach back to <code style="font-family:var(--mono);">dim_date</code>. Hourly weather and an SCD2-tracked location dimension hang off the same fact.</p>
+      <div class="refs reveal reveal-4">
+        <div class="ref">Grain<b>One reported crime incident</b></div>
+        <div class="ref">Type<b>Transaction fact (Lec 03 Slide 11)</b></div>
+        <div class="ref">Surrogates<b>BIGINT IDENTITY · YYYYMMDD smart key</b></div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="schema reveal reveal-3">
+        <div class="node" style="grid-column: 1; grid-row: 1;">
+          <div class="lbl">SCD 0</div>
+          <div class="nm">dim_date</div>
+          <div class="attrs">date_key · full_date · dow · is_weekend · is_holiday · month · quarter · year</div>
+        </div>
+        <div class="node" style="grid-column: 2; grid-row: 1;">
+          <div class="lbl">SCD 0</div>
+          <div class="nm">dim_time_of_day</div>
+          <div class="attrs">time_key (0–23) · hour_24 · am_pm · period_of_day</div>
+        </div>
+        <div class="node" style="grid-column: 3; grid-row: 1;">
+          <div class="lbl">SCD 2 + 1</div>
+          <div class="nm">dim_location</div>
+          <div class="attrs">community_area · district · ward · beat · block · pct_poverty · hardship_index · scd_*</div>
+        </div>
+
+        <div class="node" style="grid-column: 1; grid-row: 2;">
+          <div class="lbl">SCD 1</div>
+          <div class="nm">dim_crime_flags</div>
+          <div class="attrs">flags_key · is_arrest · is_domestic · label</div>
+          <small class="fineprint" style="display:block; margin-top:8px; opacity:.6;">Junk dimension · Lec 05</small>
+        </div>
+
+        <div class="node fact" style="grid-column: 2; grid-row: 2;">
+          <div class="lbl">Transaction fact</div>
+          <div class="nm">fact_crime</div>
+          <div class="attrs">crime_id (NK) · case_number (DD) · occurrence_date_key · report_date_key · location_key · crime_type_key · weather_key · flags_key · incident_count · is_arrest · is_domestic · lat · lng</div>
+        </div>
+
+        <div class="node" style="grid-column: 3; grid-row: 2;">
+          <div class="lbl">SCD 2</div>
+          <div class="nm">dim_crime_type</div>
+          <div class="attrs">iucr (NK) · primary_type · description · fbi_code · index_code · scd_*</div>
+        </div>
+
+        <div class="node" style="grid-column: 1; grid-row: 3;">
+          <div class="lbl">SCD 0</div>
+          <div class="nm">dim_weather</div>
+          <div class="attrs">weather_key · obs_date_key · obs_hour · weather_category · temp_band · precip_band</div>
+        </div>
+        <div class="node" style="grid-column: 2; grid-row: 3;">
+          <div class="lbl">SCD 1</div>
+          <div class="nm">dim_arrestee</div>
+          <div class="attrs">arrestee_key · race · age_band · sex</div>
+          <small class="fineprint" style="display:block; margin-top:8px; opacity:.6;">For optional fact_arrest</small>
+        </div>
+        <div class="node" style="grid-column: 3; grid-row: 3;">
+          <div class="lbl">Bridge</div>
+          <div class="nm">bridge_arrest_charge</div>
+          <div class="attrs">arrest_pk · crime_type_key · charge_position (1–4) · charge_class · charge_statute</div>
+          <small class="fineprint" style="display:block; margin-top:8px; opacity:.6;">Multi-valued · Lec 06</small>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 — BUS MATRIX -->
+  <section class="slide full" data-section="bus">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 07 · Bus matrix</div>
+        <h2 class="headline">Two business processes, <em>one set of dimensions.</em></h2>
+      </div>
+      <small class="fineprint">Lecture 03 · Slide 36 · Conformed Dimension Bus Matrix</small>
+    </div>
+
+    <table class="bus reveal reveal-2">
+      <thead>
+        <tr>
+          <th>Process</th>
+          <th>dim_date</th>
+          <th>dim_time</th>
+          <th>dim_location</th>
+          <th>dim_crime_type</th>
+          <th>dim_weather</th>
+          <th>dim_flags</th>
+          <th>dim_arrestee</th>
+          <th>charge bridge</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>Crime Reporting<em>fact_crime · primary</em></th>
+          <td class="tick">●</td>
+          <td class="tick">●</td>
+          <td class="tick">●</td>
+          <td class="tick">●</td>
+          <td class="tick">●</td>
+          <td class="tick">●</td>
+          <td class="dot">·</td>
+          <td class="dot">·</td>
+        </tr>
+        <tr>
+          <th>Arrest Events<em>fact_arrest · optional</em></th>
+          <td class="tick">●</td>
+          <td class="tick">●</td>
+          <td class="dot">·</td>
+          <td class="tick">●</td>
+          <td class="dot">·</td>
+          <td class="dot">·</td>
+          <td class="tick">●</td>
+          <td class="tick">●</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr class="hair"/>
+
+    <p class="body muted reveal reveal-3" style="max-width: 92ch;">
+      Conformance gives us drill-across (<b style="color:var(--paper);">Lec 03 Slide 43</b>): for the same <code style="font-family:var(--mono);">dim_date.date_key</code>, how many crime reports vs. arrest events? The two facts join through the conformed dimensions, never directly. The same <code style="font-family:var(--mono);">dim_crime_type</code> serves both the primary type on a crime row and the IUCR-coded charges on an arrest bridge — one definition of "what kind of crime", reused.
+    </p>
+  </section>
+
+  <!-- 11 — SCD STRATEGY -->
+  <section class="slide full" data-section="scd">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 08 · Slowly changing dimensions</div>
+        <h2 class="headline">Every dimension implements an SCD. <em>Type chosen by intent.</em></h2>
+      </div>
+      <small class="fineprint">Lecture 04 · Slides 5–17 · Rubric: "all dimension tables must implement SCD"</small>
+    </div>
+
+    <div class="scd reveal reveal-2">
+      <div class="row">
+        <div class="dim">dim_date</div>
+        <div class="type">Type 0 · retain</div>
+        <div class="why">Calendar attributes (month, quarter, holiday) never legitimately change.</div>
+      </div>
+      <div class="row">
+        <div class="dim">dim_time_of_day</div>
+        <div class="type">Type 0 · retain</div>
+        <div class="why">Hour-of-day attributes are static; a 24-row dimension by design.</div>
+      </div>
+      <div class="row">
+        <div class="dim">dim_location</div>
+        <div class="type">Type 2 + 1 · hybrid</div>
+        <div class="why">Socioeconomics (poverty, hardship, income) version per ACS snapshot. Static labels (community-area name) overwrite.</div>
+      </div>
+      <div class="row">
+        <div class="dim">dim_crime_type</div>
+        <div class="type">Type 2 · add row</div>
+        <div class="why">When CPD retires/replaces an IUCR code we keep historical reports correct against the then-active description.</div>
+      </div>
+      <div class="row">
+        <div class="dim">dim_weather</div>
+        <div class="type">Type 0 · retain</div>
+        <div class="why">Each row is an immutable hourly observation — there is no "change" concept.</div>
+      </div>
+      <div class="row">
+        <div class="dim">dim_crime_flags</div>
+        <div class="type">Type 1 · overwrite</div>
+        <div class="why">Junk dimension — the cartesian product of two booleans. New combos add a row, never edit.</div>
+      </div>
+      <div class="row">
+        <div class="dim">dim_arrestee</div>
+        <div class="type">Type 1 · overwrite</div>
+        <div class="why">Source provides race only, not "owned" by a person across time.</div>
+      </div>
+      <div class="row">
+        <div class="dim" style="color: var(--paper-dim);">SCD3 · add column</div>
+        <div class="type" style="color: var(--paper-dim); border-color: var(--paper-faint);">explicitly skipped</div>
+        <div class="why">We need the full history of socioeconomic indicators (&gt; 3 snapshots), not just current vs. prior. Type 2 is correct.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 — BIG DATA JUSTIFICATION -->
+  <section class="slide split" data-section="bigdata">
+    <div class="left">
+      <div class="eyebrow reveal">§ 09 · The big-data component</div>
+      <h2 class="headline reveal reveal-2">Spark for <em>volume.</em><br>S3 + Parquet for <em>variety.</em></h2>
+      <p class="body muted reveal reveal-3">The rubric asks for one big-data technology with justification. We bring two — both visible in the diagram, both taught in class, both load-bearing rather than decorative.</p>
+      <div class="refs reveal reveal-4">
+        <div class="ref">Spark<b>Lecture 11 · DataFrame joins, in-memory DAG</b></div>
+        <div class="ref">Lakehouse<b>Lecture 07 · Slide 188 · S3 + Catalog + Spark + Athena</b></div>
+        <div class="ref">Columnar<b>Lecture 09 · Parquet</b></div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="cards reveal reveal-3">
+        <div class="card">
+          <div class="num">V₁</div>
+          <div class="h">Volume — Spark on Glue</div>
+          <p class="b">~ 2.5 M rows across crime, arrests and weather, joined on date + hour + community area + IUCR code. PySpark DataFrames do this in minutes; pandas would buckle and would not represent the data-engineering side of the syllabus.</p>
+        </div>
+        <div class="card">
+          <div class="num">V₂</div>
+          <div class="h">Variety — S3 lake + Parquet</div>
+          <p class="b">CSV from four sources, JSON from one, all landed in the same bucket. Schema-on-read in bronze, columnar Parquet in silver. The Glue Catalog is the metastore that lets Spark and Athena read the same files without duplicating definitions.</p>
+        </div>
+        <div class="card" style="border-style: dashed; opacity: .7;">
+          <div class="num">∅</div>
+          <div class="h" style="color: var(--paper-dim);">KV store · rejected</div>
+          <p class="b">"Infrequent updates + fast lookup" describes neither this dataset nor any real query in the BI layer. Adding ElastiCache to score points would be cargo-culting Lecture 10.</p>
+        </div>
+        <div class="card" style="border-style: dashed; opacity: .7;">
+          <div class="num">∅</div>
+          <div class="h" style="color: var(--paper-dim);">EMR · rejected</div>
+          <p class="b">EMR runs the same Spark engine that Glue manages for us. The cluster overhead is not justified by 2.5 M rows.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 — ORCHESTRATION -->
+  <section class="slide full" data-section="orch">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 10 · Orchestration</div>
+        <h2 class="headline">A small Glue Workflow, <em>shaped like an Airflow DAG.</em></h2>
+      </div>
+      <small class="fineprint">Lecture 13 acknowledged · MWAA explicitly avoided ("not free", Slide 323)</small>
+    </div>
+
+    <pre class="mono reveal reveal-2"><span class="c">  trigger:</span>  all five Lambdas finished today's ingest
+       │
+       ▼
+<span class="h">  crawler:</span>   refresh bronze partitions in Glue Catalog
+       │
+       ▼
+<span class="k">  job:</span>       bronze → silver           <span class="c">// PySpark, parallel per source</span>
+       │
+       ▼
+<span class="h">  crawler:</span>   refresh silver tables
+       │
+       ▼
+<span class="k">  job:</span>       silver → gold (RDS)        <span class="c">// SCD merges, surrogate assign</span>
+       │
+       ▼
+<span class="c">  sensor:</span>    row-count + referential-integrity asserts
+       │
+       ▼
+<span class="c">  notify:</span>    SPICE refresh on QuickSight</pre>
+
+    <div class="row-gap reveal reveal-3" style="margin-top: 24px;">
+      <span class="tag ember"><span class="pip"></span>Picked: EventBridge → Glue Workflow</span>
+      <span class="tag"><span class="pip"></span>Alt 1: Airflow on EC2 — kept for the lecture's sake</span>
+      <span class="tag"><span class="pip"></span>Alt 2: MWAA — rejected on cost ($350/mo base)</span>
+    </div>
+  </section>
+
+  <!-- 14 — BI -->
+  <section class="slide full" data-section="bi">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 11 · The BI surface</div>
+        <h2 class="headline">Two dashboards, <em>two audiences.</em></h2>
+      </div>
+      <small class="fineprint">Built on QuickSight · SPICE-backed · refreshed an hour after the gold-layer job</small>
+    </div>
+
+    <div class="dash reveal reveal-2">
+      <div class="panel a">
+        <div class="who">Dashboard 01 · for the executive</div>
+        <div class="nm">Overview</div>
+        <ul>
+          <li><b>Headline KPIs.</b> Total reports, arrest rate, week-over-week delta.</li>
+          <li><b>Time series.</b> Monthly crime count, 2018 → present, with COVID-era markers.</li>
+          <li><b>Choropleth.</b> Reports per community area, recoloured by crime category.</li>
+          <li><b>Donut.</b> Distribution of primary crime types within the selected window.</li>
+        </ul>
+        <p class="muted" style="font-size:12px;margin-top:14px;">Answers Q1 + Q3 of the dimensional design's acceptance test.</p>
+      </div>
+      <div class="panel b">
+        <div class="who">Dashboard 02 · for the analyst</div>
+        <div class="nm">Detail</div>
+        <ul>
+          <li><b>Heat map.</b> Hour-of-day × day-of-week, faceted by crime category.</li>
+          <li><b>Weather scatter.</b> Precipitation / temperature band vs. violent-crime hours.</li>
+          <li><b>SCD2 filter.</b> "Indicators as of the event date" — drives the location dimension's history.</li>
+          <li><b>District trend.</b> Arrest rate by district over time, drillable to beat.</li>
+        </ul>
+        <p class="muted" style="font-size:12px;margin-top:14px;">Answers Q2 + Q4 + Q5.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 15 — STATUS -->
+  <section class="slide full" data-section="status">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 12 · Where we stand</div>
+        <h2 class="headline">Built · in flight · <em>queued.</em></h2>
+      </div>
+      <small class="fineprint">Snapshot · 2026-05-10 · Branch <code style="font-family:var(--mono);">main</code></small>
+    </div>
+
+    <div class="timeline reveal reveal-2">
+      <div class="col done">
+        <h3>Already built</h3>
+        <ol>
+          <li><b>Terraform</b>S3 bronze bucket — encrypted, versioned, BlockPublicAccess on.</li>
+          <li><b>Lambda</b><code style="font-family:var(--mono);">data-warehouse-final-fetch-chicago-crime</code> — daily T-8 lookback.</li>
+          <li><b>EventBridge</b>Cron firing 02:00 America/Chicago.</li>
+          <li><b>Backfill</b>2019-01-01 → 2026-04-30 in <code style="font-family:var(--mono);">raw/chicaho_crime/ingest_date=…/</code>.</li>
+          <li><b>Design docs</b>Architecture + 4-step dimensional design committed to <code style="font-family:var(--mono);">docs/</code>.</li>
+        </ol>
+      </div>
+      <div class="col next">
+        <h3>What's next</h3>
+        <ol>
+          <li><b>RDS</b>Provision PostgreSQL 16, apply DDL into <code style="font-family:var(--mono);">raw_stg · dw_staging · dw</code>.</li>
+          <li><b>Lambdas</b>IUCR · socioeconomics · weather · arrests fetchers.</li>
+          <li><b>Catalog</b>Glue Crawler + databases for bronze and silver.</li>
+          <li><b>Spark</b>bronze → silver job, source-parameterised.</li>
+          <li><b>Spark</b>silver → gold SCD merge into RDS.</li>
+          <li><b>Workflow</b>EventBridge → Glue Workflow with referential-integrity asserts.</li>
+          <li><b>BI</b>Build Overview + Detail dashboards in QuickSight.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 16 — CLOSING ARGUMENT / RUBRIC -->
+  <section class="slide split" data-section="rubric">
+    <div class="left">
+      <div class="eyebrow reveal">§ 13 · The closing argument</div>
+      <h2 class="headline reveal reveal-2">Every rubric line, <em>covered.</em></h2>
+      <p class="body muted reveal reveal-3">The architecture and the schema were built to answer the rubric line-by-line — without inflating either. What we kept is justified by a lecture; what we cut is justified by scale.</p>
+    </div>
+    <div class="right">
+      <div class="ledger reveal reveal-3" style="grid-template-columns: 28px 1.6fr 60px 1.4fr;">
+        <div class="row head">
+          <div class="cell">#</div><div class="cell">Rubric item</div><div class="cell">Wt.</div><div class="cell">Where</div>
+        </div>
+        <div class="row"><div class="cell num">01</div><div class="cell role">Data sources</div><div class="cell rows" style="font-size:18px;">2 %</div><div class="cell role muted">Five sources · CSV + JSON · §02</div></div>
+        <div class="row"><div class="cell num">02</div><div class="cell role">DW + ETL · 4-step · ≥ 1 fact · bus matrix · all dims SCD</div><div class="cell rows" style="font-size:18px;">4 %</div><div class="cell role muted">§06–§08 + dimensional-design.md</div></div>
+        <div class="row"><div class="cell num">03</div><div class="cell role">Big-Data component with justification</div><div class="cell rows" style="font-size:18px;">4 %</div><div class="cell role muted">Spark + S3 lake · §09</div></div>
+        <div class="row"><div class="cell num">04</div><div class="cell role">Automatic workflow</div><div class="cell rows" style="font-size:18px;">1 %</div><div class="cell role muted">Glue Workflow DAG · §10</div></div>
+        <div class="row"><div class="cell num">05</div><div class="cell role">BI · ≥ 2 dashboards on QuickSight</div><div class="cell rows" style="font-size:18px;">4 %</div><div class="cell role muted">Overview + Detail · §11</div></div>
+        <div class="row"><div class="cell num">06</div><div class="cell role">Two presentation videos</div><div class="cell rows" style="font-size:18px;">5 %</div><div class="cell role muted">DE-side + BA-side recordings</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 17 — Q&A -->
+  <section class="slide questions" data-section="qa">
+    <div class="stamp reveal">?</div>
+    <div class="eyebrow reveal reveal-2">End of presentation</div>
+    <h1 class="display reveal reveal-3">Thank you.<br><em>Questions, please.</em></h1>
+    <p class="lede reveal reveal-4" style="margin-top: 22px; max-width: 44ch;">Repository: <code style="font-family: var(--mono); font-style: normal; font-size: 18px; color: var(--paper);">2190436-data-warehouse-final</code> &nbsp;·&nbsp; design docs in <code style="font-family: var(--mono); font-style: normal; font-size: 18px; color: var(--paper);">docs/</code>.</p>
+    <hr class="hair reveal reveal-5" style="margin-top: 36px; max-width: 44ch;"/>
+    <small class="fineprint reveal reveal-6">2190436 · 2190518 · 2025/2 · Chulalongkorn University</small>
+  </section>
+
+</main>
+
+<script>
+(() => {
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const total = slides.length;
+  const counter = document.getElementById('cnum');
+  const totalEl = document.getElementById('ctot');
+  const bar = document.getElementById('pbar');
+  totalEl.textContent = String(total).padStart(2, '0');
+
+  let current = 0;
+
+  const show = (i) => {
+    if (i < 0 || i >= total) return;
+    slides[current].classList.remove('active');
+    current = i;
+    slides[current].classList.add('active');
+    counter.textContent = String(current + 1).padStart(2, '0');
+    bar.style.transform = `scaleX(${(current + 1) / total})`;
+    const hash = slides[current].dataset.section || String(current + 1);
+    history.replaceState(null, '', '#' + hash);
+  };
+
+  const next = () => show(Math.min(current + 1, total - 1));
+  const prev = () => show(Math.max(current - 1, 0));
+
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'l' || k === 'L') { e.preventDefault(); next(); }
+    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'h' || k === 'H') { e.preventDefault(); prev(); }
+    else if (k === 'Home') { e.preventDefault(); show(0); }
+    else if (k === 'End')  { e.preventDefault(); show(total - 1); }
+    else if (k === 'f' || k === 'F') {
+      e.preventDefault();
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    }
+  });
+
+  document.querySelector('.click-prev').addEventListener('click', prev);
+  document.querySelector('.click-next').addEventListener('click', next);
+
+  // start at hash, if any
+  const fromHash = (window.location.hash || '').slice(1);
+  if (fromHash) {
+    const idx = slides.findIndex((s) => s.dataset.section === fromHash);
+    if (idx >= 0) { show(idx); return; }
+  }
+
+  show(0);
+})();
+</script>
+
+</body>
+</html>
