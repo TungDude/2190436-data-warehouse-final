@@ -255,9 +255,8 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 
 /* cover — editorial restraint */
 .slide.cover{
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 .cover .cover-mark{
   font-family: var(--mono);
@@ -267,6 +266,7 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   color: var(--paper-dim);
   display: inline-flex; align-items: center; gap: 14px;
   position: relative; z-index: 2;
+  flex-shrink: 0;
 }
 .cover .cover-mark::before{
   content:"";
@@ -274,9 +274,13 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   background: var(--ember);
 }
 .cover .titleblock{
-  align-self: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   position: relative;
   z-index: 2;
+  padding: 32px 0;
 }
 .cover .titleblock h1{ margin: 0; max-width: 18ch; }
 .cover .titleblock .lede{
@@ -296,6 +300,7 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   text-transform: uppercase;
   color: var(--paper-dim);
   position: relative; z-index: 2;
+  flex-shrink: 0;
 }
 .cover .cover-foot .topic{
   font-family: var(--display);
@@ -308,21 +313,10 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 .cover .ghost{
   position: absolute;
   font-family: var(--display); font-style: italic;
-  font-size: clamp(180px, 36vw, 540px);
+  font-size: clamp(180px, 32vw, 480px);
   line-height: .8; letter-spacing: -.04em;
-  color: rgba(239,233,221,.045);
-  bottom: 4%; right: -.06em;
-  pointer-events: none; user-select: none;
-  font-variation-settings: "opsz" 144, "SOFT" 100;
-  z-index: 1;
-}
-.cover .ghost-2{
-  position: absolute;
-  font-family: var(--display); font-style: italic; font-weight: 380;
-  font-size: clamp(140px, 22vw, 320px);
-  line-height: .8; letter-spacing: -.04em;
-  color: rgba(227,107,45,.06);
-  top: 2%; right: 6%;
+  color: rgba(239,233,221,.05);
+  bottom: 16%; right: -.06em;
   pointer-events: none; user-select: none;
   font-variation-settings: "opsz" 144, "SOFT" 100;
   z-index: 1;
