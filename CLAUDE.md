@@ -30,6 +30,22 @@ The local config should contain a clear AWS profile entry, for example:
 - data-warehouse-final
 ```
 
+## Course Lecture Reference
+
+This project is graded against material taught in two Chulalongkorn courses
+(2190436 Data Warehousing and 2190518 Data Engineering and Big Data). The
+lecture slides have been transcribed to markdown under `docs/lectures/`.
+
+Whenever a task touches a concept that was taught in class — dimensional
+modeling, SCDs, fact-table types, conformed dimensions, big-data
+architectures, NoSQL choices, Spark, Airflow, Kafka, etc. — read
+`docs/lectures/INDEX.md` first to find the right lecture, then read the
+specific lecture markdown(s) it points to. Do not grep the lecture
+directory blindly; the index is the entry point.
+
+The PDF originals remain in `slides/midterm/` and `slides/final/` and are
+the authoritative source if the markdown extraction is ambiguous.
+
 ## Project Goal
 
 Build a dimensional model and data pipeline that can ingest multiple data
