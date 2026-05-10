@@ -391,47 +391,153 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 .ledger .role{ color: var(--paper); }
 .ledger .row.implemented .cell{ background: linear-gradient(90deg, rgba(227,107,45,.06), transparent 60%); }
 
-/* medallion */
-.medallion{
-  display: grid; grid-template-columns: 1fr 28px 1fr 28px 1fr;
-  gap: 0; align-items: stretch; margin-top: 0;
-  flex: 1; min-height: 0;
-}
-.medallion .arrow{
-  display:flex; align-items: center; justify-content: center; color: var(--paper-faint);
-  font-family: var(--mono); font-size: 22px;
-}
-.medallion .layer{
-  border: 1px solid var(--paper-faint);
-  background: rgba(239,233,221,.02);
-  padding: 36px 30px 32px;
-  position: relative;
-  overflow: hidden;
+/* 4-step dimensional design — Kimball process */
+.steps-slide{
   display: flex;
   flex-direction: column;
+  gap: 18px;
 }
-.medallion .layer .lbl{
-  font-family: var(--mono); font-size: 11.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--paper-dim);
+.steps-slide > .header{
+  flex: 0 0 auto;
+  display: flex; align-items: end; justify-content: space-between; gap: 24px;
 }
-.medallion .layer .name{
-  font-family: var(--display); font-weight: 380; font-style: italic;
-  font-size: clamp(34px, 3.4vw, 52px); line-height: 1; margin: 10px 0 22px 0;
-  font-variation-settings: "opsz" 96, "SOFT" 80;
+.steps-slide > .header h2{ margin: 6px 0 0 0; }
+
+.steps-grid{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  border-top: var(--rule);
+  border-bottom: var(--rule);
 }
-.medallion .layer.bronze .name{ color: #C97D3A; }
-.medallion .layer.silver .name{ color: #B7BDC0; }
-.medallion .layer.gold   .name{ color: var(--ember-soft); }
-.medallion .layer p{ font-size: 15px; line-height: 1.55; color: var(--paper-dim); margin: 0 0 14px 0; }
-.medallion .layer p:not(.muted){ color: var(--paper); }
-.medallion .layer code{
-  font-family: var(--mono); font-size: 12px; color: var(--paper);
+.step-col{
+  padding: 18px 24px 20px;
+  border-right: var(--rule);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: rgba(239,233,221,.012);
+}
+.step-col:last-child{ border-right: 0; }
+.step-col::after{
+  content: "";
+  position: absolute;
+  top: 50px;
+  right: -9px;
+  width: 16px; height: 16px;
+  background: var(--ink);
+  transform: rotate(45deg);
+  border-top: 1px solid var(--ember);
+  border-right: 1px solid var(--ember);
+  z-index: 3;
+}
+.step-col:last-child::after{ display: none; }
+
+.step-num{
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 380;
+  font-size: clamp(54px, 5.6vw, 92px);
+  line-height: .9;
+  letter-spacing: -.04em;
+  color: var(--ember-soft);
+  margin: 0;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+}
+.step-name{
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: var(--ember);
+  margin: 6px 0 16px 0;
+  display: flex; align-items: center; gap: 10px;
+}
+.step-name::before{ content:""; width: 22px; height:1px; background: var(--ember); }
+
+.step-quote{
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 380;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--paper);
+  margin: 0 0 14px 0;
+  padding-left: 14px;
+  border-left: 2px solid rgba(227,107,45,.55);
+  font-variation-settings: "opsz" 36, "SOFT" 80;
+  position: relative;
+}
+.step-quote::before{
+  content: "\201C";
+  position: absolute; left: 4px; top: -8px;
+  font-family: var(--display); font-style: italic;
+  font-size: 30px; color: var(--ember);
+  line-height: 1;
+}
+.step-quote-src{
   display: block;
-  background: rgba(0,0,0,.35);
-  padding: 10px 12px; border-radius: 4px;
-  border: 1px solid var(--paper-hair);
-  margin-top: auto;
-  word-break: break-all;
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 9.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  margin-top: 8px;
 }
+
+.step-our{
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--paper-faint);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step-our-tag{
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: var(--ember-soft);
+}
+.step-our-list{
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.step-our-list li{
+  display: flex; flex-direction: column; gap: 1px;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.step-our-list li b{
+  font-family: var(--mono);
+  font-weight: 400;
+  color: var(--paper);
+  font-size: 12.5px;
+  letter-spacing: .02em;
+}
+.step-our-list li span{
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--paper-dim);
+}
+
+.steps-bookend{
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--paper-dim);
+  padding: 4px 0 0;
+}
+.steps-bookend .b{
+  border: 1px solid var(--paper-hair);
+  padding: 6px 14px; border-radius: 999px;
+}
+.steps-bookend .b em{ font-style: normal; color: var(--paper); }
+.steps-bookend .arrow{ color: var(--paper-faint); font-family: var(--display); font-style: italic; font-size: 18px; }
 
 /* AWS service grid */
 .svc{
@@ -482,15 +588,6 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 .svc .item .ico-database   { background: linear-gradient(135deg, #2D5BD9, #527FFF); }
 .svc .item .ico-security   { background: linear-gradient(135deg, #B32639, #DD344C); }
 .svc .item .ico-bi         { background: linear-gradient(135deg, #B45A0E, #E07621); }
-.svc .item.rejected{
-  background: rgba(227,107,45,.04);
-  border-color: rgba(227,107,45,.3) !important;
-}
-.svc .item .ico-rejected{
-  background: transparent;
-  box-shadow: inset 0 0 0 1px rgba(239,233,221,.18);
-}
-.svc .item .ico-rejected svg{ stroke: rgba(239,233,221,.45); }
 
 /* schema diagram */
 .schema{
@@ -523,35 +620,167 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   position: absolute; inset:0; pointer-events: none;
 }
 
-/* bus matrix */
-.bus{
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
+/* bus matrix — canonical Kimball table + conformed-dim columns */
+.bus-slide{
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.bus-slide > .header{
+  flex: 0 0 auto;
+  display: flex; align-items: end; justify-content: space-between; gap: 24px;
+}
+.bus-slide > .header h2{ margin: 6px 0 0 0; }
+
+/* Canonical Kimball matrix — rows = facts, columns = dimensions */
+.bus-matrix{
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(8, minmax(0, 1fr));
+  gap: 0;
+  border-top: var(--rule);
+  border-bottom: var(--rule);
+  flex: 0 0 auto;
+}
+.bus-matrix .h{
+  padding: 12px 8px;
+  border-right: 1px solid var(--paper-hair);
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  color: var(--paper-dim);
+  text-align: center;
+  display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid var(--paper);
+}
+.bus-matrix .h:last-child{ border-right: 0; }
+.bus-matrix .h.h-conform{
+  color: var(--ember);
+  background: rgba(227,107,45,.06);
+}
+.bus-matrix .h.h-row{
+  text-align: left;
+  padding-left: 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+.bus-matrix .cell{
+  padding: 12px 8px;
+  border-right: 1px solid var(--paper-hair);
+  border-top: 1px solid var(--paper-hair);
+  text-align: center;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 18px;
+  position: relative;
+}
+.bus-matrix .cell:last-of-type, .bus-matrix .cell:nth-child(9n){ border-right: 0; }
+.bus-matrix .cell.tick{ color: var(--ember); }
+.bus-matrix .cell.tick.tick-conform{ color: var(--ember-soft); }
+.bus-matrix .cell.tick.tick-conform::after{
+  content:"";
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(227,107,45,.05);
+  pointer-events: none;
+}
+.bus-matrix .cell.dot{ color: var(--paper-faint); font-size: 16px; }
+.bus-matrix .cell.label{
+  text-align: left;
+  justify-content: flex-start;
+  padding-left: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.bus-matrix .cell.label .nm{
+  font-family: var(--mono); font-size: 14px; letter-spacing: .02em;
+  color: var(--paper);
+}
+.bus-matrix .cell.label.l-crime .nm{ color: var(--ember-soft); }
+.bus-matrix .cell.label.l-arrest .nm{ color: var(--dusk); }
+.bus-matrix .cell.label .gr{
+  font-family: var(--display); font-style: italic; font-size: 11px;
+  color: var(--paper-dim); line-height: 1.35;
+}
+
+.bus-grid{
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.bus-col{
+  border: 1px solid var(--paper-faint);
+  padding: 18px 22px 18px;
+  position: relative;
+  display: flex; flex-direction: column;
+  background: rgba(239,233,221,.015);
+}
+.bus-col::before{
+  content: "";
+  position: absolute;
+  top: -19px; left: 50%;
+  width: 1px; height: 19px;
+  background: linear-gradient(180deg, transparent, var(--paper-faint));
+}
+.bus-col-tag{
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .26em;
+  text-transform: uppercase; color: var(--paper-dim);
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--paper-hair);
+}
+.bus-col-tag::before{ content:""; width: 22px; height:1px; background: currentColor; }
+.bus-col-shared{
+  border-color: rgba(227,107,45,.42);
+  background:
+    linear-gradient(180deg, rgba(227,107,45,.05), transparent 50%),
+    rgba(239,233,221,.015);
+}
+.bus-col-shared .bus-col-tag{ color: var(--ember); }
+.bus-col-shared::before{ background: linear-gradient(180deg, rgba(227,107,45,.5), rgba(227,107,45,.1)); }
+.bus-col-crime::before{ background: linear-gradient(180deg, rgba(227,107,45,.4), transparent); }
+.bus-col-arrest::before{ background: linear-gradient(180deg, rgba(110,141,160,.45), transparent); }
+
+.bus-col ul{
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 0;
+}
+.bus-col li{
+  padding: 10px 0;
+  border-bottom: 1px solid var(--paper-hair);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.bus-col li:last-child{ border-bottom: 0; }
+.bus-col li b{
+  font-family: var(--mono); font-weight: 400; font-size: 13.5px;
+  color: var(--paper); letter-spacing: .02em;
+}
+.bus-col li span{
+  font-family: var(--display); font-style: italic; font-size: 12.5px;
+  color: var(--paper-dim); line-height: 1.4;
+}
+.bus-col-shared li b{ color: var(--ember-soft); }
+
+.bus-col-foot{
+  margin-top: auto;
+  padding-top: 12px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .26em;
+  text-transform: uppercase; color: var(--ember);
+  text-align: center;
+  border-top: 1px dashed rgba(227,107,45,.35);
   margin-top: 14px;
 }
-.bus th, .bus td{
-  border: 1px solid var(--paper-hair);
-  padding: 10px 12px;
-  text-align: center;
-  vertical-align: middle;
+
+.bus-note{
+  margin-top: 4px;
+  font-size: 13.5px; color: var(--paper-dim); line-height: 1.55;
+  max-width: 100ch;
 }
-.bus thead th{
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-dim);
-  font-weight: 400;
-  background: rgba(239,233,221,.03);
-  text-align: center;
-}
-.bus tbody th{
-  text-align: left;
-  font-family: var(--display); font-weight: 500; font-size: 16px; color: var(--paper);
-  background: rgba(239,233,221,.02);
-  font-style: italic;
-  white-space: nowrap;
-}
-.bus tbody th em{ display:block; font-family: var(--mono); font-size: 10.5px; font-style: normal; color: var(--paper-dim); letter-spacing: .12em; text-transform: uppercase; margin-top: 4px; font-weight: 400; }
-.bus td.tick{ color: var(--ember); font-family: var(--mono); font-size: 16px; }
-.bus td.dot{ color: var(--paper-faint); }
+.bus-note b{ color: var(--paper); font-weight: 500; }
 
 /* SCD typology — redesigned as 4-column visual taxonomy */
 .scd-grid{
@@ -648,6 +877,14 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   fill: rgba(239,233,221,.92);
   text-transform: uppercase;
 }
+.scd-glyph .scd-rail{
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 13px;
+  fill: var(--ember-soft);
+}
+.scd-glyph .scd-rail-line{ stroke: rgba(227,107,45,.45); stroke-width: 1; }
 
 .scd-caption{
   font-family: var(--display);
@@ -687,29 +924,6 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   line-height: 1.4;
 }
 
-.scd-skip{
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 0 0;
-  margin-top: 4px;
-}
-.scd-skip-tag{
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--paper-dim);
-  flex-shrink: 0;
-  border: 1px solid var(--paper-hair);
-  padding: 5px 12px;
-  border-radius: 999px;
-}
-.scd-skip-text{
-  font-size: 13px;
-  color: var(--paper-dim);
-  line-height: 1.5;
-}
 
 /* DAG (legacy — kept in case other slides use it) */
 .dag{
@@ -987,19 +1201,177 @@ pre.mono .h{ color: var(--dusk); }
 .row-gap{ display:flex; gap: 8px; flex-wrap: wrap; }
 .cluster{ display:flex; gap: 14px; flex-wrap: wrap; align-items: center; }
 
-/* for cards used inside split-right */
-.cards{
-  display:grid; grid-template-columns: 1fr 1fr; gap: 14px;
+/* big-data diptych — Volume & Variety */
+.bigdata-slide{
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
-.card{
-  border: 1px solid var(--paper-faint);
-  padding: 16px 16px 18px;
-  background: rgba(239,233,221,.02);
+.bigdata-slide > .header{
+  flex: 0 0 auto;
+  display: flex; align-items: end; justify-content: space-between; gap: 24px;
+}
+.bigdata-slide > .header h2{ margin: 6px 0 0 0; }
+.bigdata-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+}
+.bd-panel{
   position: relative;
+  border: 1px solid var(--paper-faint);
+  padding: 28px 32px 26px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(239,233,221,.025), transparent 50%),
+    rgba(0,0,0,.18);
+  min-height: 0;
 }
-.card .h{ font-family: var(--display); font-style: italic; font-size: 18px; margin: 0 0 6px; }
-.card .b{ font-size: 13px; color: var(--paper-dim); line-height: 1.5; margin: 0; }
-.card .num{ position:absolute; top: 12px; right: 12px; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--paper-dim); }
+.bd-volume{
+  background:
+    linear-gradient(180deg, rgba(227,107,45,.07), transparent 65%),
+    rgba(0,0,0,.18);
+  border-color: rgba(227,107,45,.32);
+}
+.bd-variety{
+  background:
+    linear-gradient(180deg, rgba(110,141,160,.08), transparent 65%),
+    rgba(0,0,0,.18);
+  border-color: rgba(110,141,160,.36);
+}
+.bd-V{
+  position: absolute;
+  bottom: -.18em;
+  right: -.02em;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 380;
+  font-size: clamp(260px, 26vw, 460px);
+  line-height: .82;
+  letter-spacing: -.08em;
+  color: rgba(239,233,221,.04);
+  pointer-events: none; user-select: none;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  z-index: 1;
+}
+.bd-volume .bd-V{ color: rgba(227,107,45,.10); }
+.bd-variety .bd-V{ color: rgba(110,141,160,.10); }
+
+.bd-panel header{
+  display: flex; flex-direction: column; gap: 4px;
+  margin-bottom: 14px;
+  position: relative; z-index: 2;
+}
+.bd-tag{
+  font-family: var(--mono); font-size: 11px; letter-spacing: .26em;
+  text-transform: uppercase; color: var(--paper-dim);
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.bd-tag::before{ content:""; width: 22px; height:1px; background: currentColor; }
+.bd-volume .bd-tag{ color: var(--ember); }
+.bd-variety .bd-tag{ color: var(--dusk); }
+.bd-panel h3{
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 380;
+  font-size: clamp(40px, 4.4vw, 68px);
+  line-height: 1; margin: 2px 0 0 0;
+  letter-spacing: -.02em;
+  font-variation-settings: "opsz" 144, "SOFT" 80;
+}
+.bd-volume h3{ color: var(--ember-soft); }
+.bd-variety h3{ color: var(--dusk); }
+
+.bd-stat{
+  display: flex; align-items: baseline; gap: 16px;
+  margin-bottom: 18px;
+  position: relative; z-index: 2;
+  border-top: 1px solid var(--paper-faint); padding-top: 14px;
+}
+.bd-stat .num{
+  font-family: var(--display); font-style: italic; font-weight: 380;
+  font-size: clamp(48px, 5.2vw, 84px); line-height: 1;
+  letter-spacing: -.02em;
+  color: var(--paper);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+}
+.bd-stat .num em{ color: var(--paper-dim); font-style: italic; }
+.bd-stat .lbl{
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--paper-dim);
+  margin-bottom: 8px;
+  max-width: 16ch;
+}
+
+.bd-bars{ list-style: none; margin: 0 0 16px 0; padding: 0; position: relative; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
+.bd-bars li{
+  display: grid;
+  grid-template-columns: 78px 1fr 64px;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .04em;
+}
+.bd-bars li .lbl{ color: var(--paper-dim); }
+.bd-bars li .barwrap{
+  height: 10px;
+  background: rgba(239,233,221,.04);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.bd-bars li .bar{
+  display: block; height: 100%;
+  background: linear-gradient(90deg, rgba(227,107,45,.85), rgba(243,165,114,.55));
+}
+.bd-bars li .val{ color: var(--paper); text-align: right; font-variant-numeric: tabular-nums; }
+
+.bd-formats{ list-style: none; margin: 0 0 16px 0; padding: 0; position: relative; z-index: 2; display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--paper-hair); }
+.bd-formats li{
+  border-bottom: 1px solid var(--paper-hair);
+  padding: 11px 0;
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 16px;
+  align-items: baseline;
+  font-size: 13px;
+}
+.bd-formats li b{
+  font-family: var(--mono); font-weight: 400; font-size: 11.5px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--paper);
+  display: inline-flex; align-items: center; gap: 9px;
+}
+.bd-formats li b::before{
+  content:""; width: 9px; height: 9px;
+  display: inline-block;
+  background: var(--paper);
+  flex-shrink: 0;
+}
+.bd-formats li.f-csv b::before    { background: var(--dusk); }
+.bd-formats li.f-json b::before   { background: var(--ember-soft); transform: rotate(45deg); }
+.bd-formats li.f-parquet b::before{ background: var(--moss); border-radius: 50%; }
+.bd-formats li span{ color: var(--paper-dim); line-height: 1.45; }
+
+.bd-panel footer{
+  margin-top: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  position: relative; z-index: 2;
+}
+.bd-panel footer p{
+  font-size: 13px; color: var(--paper); margin: 0; line-height: 1.55;
+  max-width: 48ch;
+}
+.bd-tech{
+  align-self: flex-start;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--paper);
+  border: 1px solid var(--paper-faint);
+  padding: 6px 12px; border-radius: 999px;
+}
+.bd-volume .bd-tech{ color: var(--ember-soft); border-color: rgba(227,107,45,.4); }
+.bd-variety .bd-tech{ color: var(--dusk); border-color: rgba(110,141,160,.4); }
 
 @media (max-width: 1100px){
   .scoreboard{ grid-template-columns: repeat(3, 1fr); }
@@ -1104,7 +1476,7 @@ pre.mono .h{ color: var(--dusk); }
       </div>
       <div class="row">
         <div class="cell num">05</div>
-        <div class="cell"><div class="src">Chicago Police Arrests <span class="tag dusk" style="margin-left:8px;">optional</span><em>Socrata · dpt3-jri9</em></div></div>
+        <div class="cell"><div class="src">Chicago Police Arrests<em>Socrata · dpt3-jri9</em></div></div>
         <div class="cell fmt">CSV</div>
         <div class="cell rows">~ 700 k</div>
         <div class="cell role">Second business process for the bus matrix.</div>
@@ -1127,58 +1499,11 @@ pre.mono .h{ color: var(--dusk); }
     <p class="lede reveal reveal-4" style="margin-top: 22px;">A medallion lakehouse on the lake side; a Kimball star on the warehouse side. Glue is the bridge.</p>
   </section>
 
-  <!-- 05 — MEDALLION -->
-  <section class="slide full" data-section="medallion">
-    <div class="header reveal">
-      <div>
-        <div class="eyebrow">§ 01 · Medallion zoning</div>
-        <h2 class="headline">Bronze, silver, <em>gold</em> — three quality tiers, one bucket.</h2>
-      </div>
-      <small class="fineprint">Lakehouse design pattern · Bronze raw, Silver standardised, Gold curated</small>
-    </div>
-
-    <div class="medallion reveal reveal-2">
-      <div class="layer bronze">
-        <div class="lbl">Layer 01 · Lake</div>
-        <div class="name">Bronze</div>
-        <p>Immutable landing. CSV + JSON, exactly as the publishers ship them. Append-only, partitioned by ingest date.</p>
-        <p class="muted" style="font-size:12px;">No transformation. Versioning on, encryption on. Re-fetches go to a new partition.</p>
-        <code>s3://…-raw/raw/&lt;source&gt;/ingest_date=YYYY-MM-DD/</code>
-      </div>
-      <div class="arrow">→</div>
-      <div class="layer silver">
-        <div class="lbl">Layer 02 · Lake</div>
-        <div class="name">Silver</div>
-        <p>Type-cast, deduplicated, normalised. Parquet for columnar reads. Crawled into the Glue Catalog.</p>
-        <p class="muted" style="font-size:12px;">Athena-queryable. Spark writes; Athena reads; QuickSight may also point here for ad-hoc.</p>
-        <code>s3://…-raw/standardized/&lt;source&gt;/year=YYYY/</code>
-      </div>
-      <div class="arrow">→</div>
-      <div class="layer gold">
-        <div class="lbl">Layer 03 · Warehouse</div>
-        <div class="name">Gold</div>
-        <p>Dimensional star schema in RDS PostgreSQL 16. SCD-aware merges, surrogate keys, conformed dimensions.</p>
-        <p class="muted" style="font-size:12px;">The presentation area in Kimball's component model. QuickSight talks to this.</p>
-        <code>RDS · schema dw.* (fact_crime · dim_*)</code>
-      </div>
-    </div>
-
-    <hr class="hair"/>
-    <p class="body muted reveal reveal-3" style="max-width: 90ch;">
-      The two halves of the brief map cleanly onto the same picture: the
-      classic <b style="color:var(--paper);">Source → Staging → Presentation → Access</b>
-      component model on the warehouse side, and the modern
-      <b style="color:var(--paper);">S3 + Catalog + Spark + Athena</b> lakehouse stack
-      on the lake side. Bronze + silver are the lakehouse, gold is the
-      warehouse, and the two coexist rather than compete.
-    </p>
-  </section>
-
-  <!-- 06 — ARCHITECTURE DIAGRAM -->
+  <!-- 05 — ARCHITECTURE DIAGRAM -->
   <section class="slide diagram-slide" data-section="flow">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 02 · Architecture</div>
+        <div class="eyebrow">§ 01 · Architecture</div>
         <h2 class="headline">From a public API to a <em>QuickSight pixel.</em></h2>
       </div>
       <small class="fineprint">Every box is a managed AWS primitive — no standing servers.</small>
@@ -1336,10 +1661,10 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="services">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 03 · The stack</div>
+        <div class="eyebrow">§ 02 · The stack</div>
         <h2 class="headline">Eleven services, <em>chosen with restraint.</em></h2>
       </div>
-      <small class="fineprint">Every service below is here for a reason — and every alternative was rejected for one.</small>
+      <small class="fineprint">Each service earns its place; together they cover ingest, lake, warehouse, and BI.</small>
     </div>
 
     <div class="svc reveal reveal-2">
@@ -1443,15 +1768,6 @@ pre.mono .h{ color: var(--dusk); }
         <div class="role">Least-privilege roles, SSE on S3 + RDS, private subnets.</div>
       </div>
 
-      <div class="item rejected">
-        <div class="pin">∅</div>
-        <div class="ico ico-rejected" aria-label="Rejected services icon">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
-        </div>
-        <div class="name" style="color: var(--paper-dim); font-style: italic;">Redshift · MSK · MWAA · DMS · ElastiCache · EMR · Lake Formation</div>
-        <div class="role">Each rejected with a written reason. Restraint is part of the design.</div>
-      </div>
-
     </div>
   </section>
 
@@ -1463,7 +1779,90 @@ pre.mono .h{ color: var(--dusk); }
     <p class="lede reveal reveal-4" style="margin-top: 22px;">Kimball's four-step process, applied step-by-step — grain, dimensions, facts, then everything else.</p>
   </section>
 
-  <!-- 09 — STAR SCHEMA VISUAL -->
+  <!-- 09 — 4-STEP DIMENSIONAL DESIGN -->
+  <section class="slide steps-slide" data-section="fourstep">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 03 · 4-step dimensional design</div>
+        <h2 class="headline">Kimball's process, <em>step by step.</em></h2>
+      </div>
+      <small class="fineprint">Each step asks one question — and the project answers it before moving on to the next.</small>
+    </div>
+
+    <div class="steps-grid reveal reveal-2">
+
+      <!-- STEP 01 — BUSINESS PROCESS -->
+      <div class="step-col">
+        <div class="step-num">01</div>
+        <div class="step-name">business process</div>
+        <p class="step-quote">A business process is a low-level activity performed by the organisation — not a department or function.<span class="step-quote-src">— Kimball · Lecture 02</span></p>
+        <div class="step-our">
+          <span class="step-our-tag">Our project</span>
+          <ul class="step-our-list">
+            <li><b>Reporting a crime incident</b><span>primary fact · 1.5 M rows</span></li>
+            <li><b>Arresting a person</b><span>second process · drives the bus matrix</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- STEP 02 — GRAIN -->
+      <div class="step-col">
+        <div class="step-num">02</div>
+        <div class="step-name">grain</div>
+        <p class="step-quote">Atomic grain refers to the lowest level that data is captured in the business process — preferably the most atomic level possible.<span class="step-quote-src">— Kimball · Lecture 02</span></p>
+        <div class="step-our">
+          <span class="step-our-tag">Our project</span>
+          <ul class="step-our-list">
+            <li><b>fact_crime</b><span>one reported crime incident · keyed by Chicago id</span></li>
+            <li><b>fact_arrest</b><span>one arrest event · one cb_no</span></li>
+            <li><b>type</b><span>transaction fact · insert-only · never revisited</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- STEP 03 — DIMENSIONS -->
+      <div class="step-col">
+        <div class="step-num">03</div>
+        <div class="step-name">dimensions</div>
+        <p class="step-quote">Who, what, when, why, where, and how associated with the event?<span class="step-quote-src">— Kimball · Lecture 02</span></p>
+        <div class="step-our">
+          <span class="step-our-tag">Our project · 6 dims + degenerate</span>
+          <ul class="step-our-list">
+            <li><b>dim_date · dim_time_of_day</b><span>when · role-played twice</span></li>
+            <li><b>dim_location</b><span>where · SCD2 socio-economics</span></li>
+            <li><b>dim_crime_type</b><span>what · IUCR + FBI code</span></li>
+            <li><b>dim_weather · dim_crime_flags</b><span>under what · how (junk)</span></li>
+            <li><b>case_number</b><span>degenerate dim — kept on fact</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- STEP 04 — FACTS -->
+      <div class="step-col">
+        <div class="step-num">04</div>
+        <div class="step-name">facts</div>
+        <p class="step-quote">Facts must be true to the grain. Percentages and ratios are non-additive — store numerator and denominator instead.<span class="step-quote-src">— Kimball · Lecture 02</span></p>
+        <div class="step-our">
+          <span class="step-our-tag">Our project · measures</span>
+          <ul class="step-our-list">
+            <li><b>incident_count = 1</b><span>additive · trivial roll-ups</span></li>
+            <li><b>is_arrest · is_domestic</b><span>semi-additive · 0/1</span></li>
+            <li><b>temp_c · precip_mm · hours_to_update</b><span>additive measures</span></li>
+            <li><b>lat · lng</b><span>non-additive · viz only</span></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="steps-bookend reveal reveal-3">
+      <span class="b">step 0 · <em>gather requirements</em></span>
+      <span class="arrow">→</span>
+      <span class="b">step 5 · <em>finish details</em> · surrogate keys, smart keys, unknown rows</span>
+    </div>
+  </section>
+
+  <!-- 10 — STAR SCHEMA VISUAL -->
   <section class="slide split" data-section="star">
     <div class="left">
       <div class="eyebrow reveal">§ 04 · Star schema</div>
@@ -1549,66 +1948,91 @@ pre.mono .h{ color: var(--dusk); }
           </g>
 
           <!-- footer note -->
-          <text x="460" y="680" text-anchor="middle" class="dg-meta-sm" style="fill: var(--paper-dim);">Optional second business process · fact_arrest with dim_arrestee + bridge_arrest_charge (multi-valued, 1–4 charges)</text>
+          <text x="460" y="680" text-anchor="middle" class="dg-meta-sm" style="fill: var(--paper-dim);">Second business process · fact_arrest with dim_arrestee + bridge_arrest_charge (multi-valued, 1–4 charges)</text>
         </svg>
       </div>
     </div>
   </section>
 
   <!-- 10 — BUS MATRIX -->
-  <section class="slide full" data-section="bus">
+  <section class="slide bus-slide" data-section="bus">
     <div class="header reveal">
       <div>
         <div class="eyebrow">§ 05 · Bus matrix</div>
         <h2 class="headline">Two business processes, <em>one set of dimensions.</em></h2>
       </div>
-      <small class="fineprint">Conformed-dimension bus matrix · drives drill-across between facts</small>
+      <small class="fineprint">Conformed dimensions are the spine that makes drill-across work between the two facts.</small>
     </div>
 
-    <table class="bus reveal reveal-2">
-      <thead>
-        <tr>
-          <th>Process</th>
-          <th>dim_date</th>
-          <th>dim_time</th>
-          <th>dim_location</th>
-          <th>dim_crime_type</th>
-          <th>dim_weather</th>
-          <th>dim_flags</th>
-          <th>dim_arrestee</th>
-          <th>charge bridge</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <th>Crime Reporting<em>fact_crime · primary</em></th>
-          <td class="tick">●</td>
-          <td class="tick">●</td>
-          <td class="tick">●</td>
-          <td class="tick">●</td>
-          <td class="tick">●</td>
-          <td class="tick">●</td>
-          <td class="dot">·</td>
-          <td class="dot">·</td>
-        </tr>
-        <tr>
-          <th>Arrest Events<em>fact_arrest · optional</em></th>
-          <td class="tick">●</td>
-          <td class="tick">●</td>
-          <td class="dot">·</td>
-          <td class="tick">●</td>
-          <td class="dot">·</td>
-          <td class="dot">·</td>
-          <td class="tick">●</td>
-          <td class="tick">●</td>
-        </tr>
-      </tbody>
-    </table>
+    <!-- Canonical Kimball bus matrix · rows = business processes, cols = dimensions -->
+    <div class="bus-matrix reveal reveal-2">
+      <div class="h h-row">process \ dimension</div>
+      <div class="h h-conform">dim_date</div>
+      <div class="h h-conform">dim_time_of_day</div>
+      <div class="h">dim_location</div>
+      <div class="h h-conform">dim_crime_type</div>
+      <div class="h">dim_weather</div>
+      <div class="h">dim_crime_flags</div>
+      <div class="h">dim_arrestee</div>
+      <div class="h">charge bridge</div>
 
-    <hr class="hair"/>
+      <div class="cell label l-crime"><span class="nm">fact_crime</span><span class="gr">one reported incident</span></div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell tick">●</div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell tick">●</div>
+      <div class="cell tick">●</div>
+      <div class="cell dot">·</div>
+      <div class="cell dot">·</div>
 
-    <p class="body muted reveal reveal-3" style="max-width: 92ch;">
-      Conformance gives us drill-across: for the same <code style="font-family:var(--mono);">dim_date.date_key</code>, how many crime reports vs. arrest events? The two facts join through the conformed dimensions, never directly. The same <code style="font-family:var(--mono);">dim_crime_type</code> serves both the primary type on a crime row and the IUCR-coded charges on an arrest bridge — one definition of "what kind of crime", reused.
+      <div class="cell label l-arrest"><span class="nm">fact_arrest</span><span class="gr">one arrest event</span></div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell dot">·</div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell dot">·</div>
+      <div class="cell dot">·</div>
+      <div class="cell tick">●</div>
+      <div class="cell tick">●</div>
+    </div>
+
+    <div class="bus-grid reveal reveal-3">
+
+      <!-- CRIME-ONLY DIMS -->
+      <div class="bus-col bus-col-crime">
+        <div class="bus-col-tag">crime only</div>
+        <ul>
+          <li><b>dim_location</b><span>community area · district · ward · beat</span></li>
+          <li><b>dim_weather</b><span>hourly observation, joined by date+hour</span></li>
+          <li><b>dim_crime_flags</b><span>arrest + domestic junk dim</span></li>
+        </ul>
+      </div>
+
+      <!-- CONFORMED DIMS (shared spine) -->
+      <div class="bus-col bus-col-shared">
+        <div class="bus-col-tag">conformed · shared</div>
+        <ul>
+          <li><b>dim_date</b><span>YYYYMMDD smart key, role-played twice</span></li>
+          <li><b>dim_time_of_day</b><span>0–23 hour, period-of-day labels</span></li>
+          <li><b>dim_crime_type</b><span>IUCR · FBI code · index/non-index</span></li>
+        </ul>
+        <div class="bus-col-foot">drill-across spine</div>
+      </div>
+
+      <!-- ARREST-ONLY DIMS -->
+      <div class="bus-col bus-col-arrest">
+        <div class="bus-col-tag">arrest only</div>
+        <ul>
+          <li><b>dim_arrestee</b><span>age · sex · race demographics</span></li>
+          <li><b>bridge_arrest_charge</b><span>multi-valued, 1–4 charges per event</span></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <p class="bus-note reveal reveal-4">
+      One <code style="font-family:var(--mono); font-size: 13px; color: var(--paper);">dim_crime_type</code> serves both the primary type on a crime row and the IUCR-coded charges on the arrest bridge — <b>one definition of "what kind of crime", reused.</b> The two facts never join to each other, only through the conformed spine.
     </p>
   </section>
 
@@ -1691,17 +2115,25 @@ pre.mono .h{ color: var(--dusk); }
       <div class="scd-col is-hybrid">
         <div class="scd-num">2<span class="sym">+</span>1</div>
         <div class="scd-type">hybrid</div>
-        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 2 plus 1 — mixed strategy per attribute">
+        <svg class="scd-glyph" viewBox="0 0 260 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 2 plus 1 — mixed strategy per attribute">
+          <!-- left rail labels -->
+          <text class="scd-rail" x="2" y="14">2</text>
+          <text class="scd-rail" x="2" y="50">1</text>
+          <line class="scd-rail-line" x1="14" y1="6"  x2="14" y2="34"/>
+          <line class="scd-rail-line" x1="14" y1="42" x2="14" y2="56"/>
+
           <!-- versioned (Type 2) attrs -->
-          <rect class="scd-bar-v"   x="6"   y="6"  width="60" height="9"/>
-          <rect class="scd-bar-v"   x="56"  y="18" width="80" height="9"/>
-          <rect class="scd-bar-new" x="126" y="30" width="108" height="9"/>
+          <rect class="scd-bar-v"   x="22"  y="6"  width="60" height="9"/>
+          <rect class="scd-bar-v"   x="70"  y="18" width="80" height="9"/>
+          <rect class="scd-bar-new" x="140" y="30" width="108" height="9"/>
+
           <!-- overwrite (Type 1) row -->
-          <rect class="scd-bar-old" x="6"   y="44" width="228" height="10"/>
-          <line class="scd-strike"  x1="100" y1="49" x2="226" y2="49"/>
-          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
-          <text class="scd-tick" x="6"   y="70">2 · versioned attrs</text>
-          <text class="scd-tick" x="234" y="70" text-anchor="end">1 · overwritten attrs</text>
+          <rect class="scd-bar-old" x="22"  y="44" width="226" height="10"/>
+          <line class="scd-strike"  x1="100" y1="49" x2="240" y2="49"/>
+
+          <line class="scd-axis" x1="22" y1="62" x2="248" y2="62"/>
+          <text class="scd-tick" x="22"  y="71">versioned per attr</text>
+          <text class="scd-tick scd-tick-em" x="248" y="71" text-anchor="end">latest wins</text>
         </svg>
         <p class="scd-caption">Some columns version (Type 2), others overwrite (Type 1) — choose per attribute, not per dimension.</p>
         <ul class="scd-dims">
@@ -1711,48 +2143,68 @@ pre.mono .h{ color: var(--dusk); }
 
     </div>
 
-    <div class="scd-skip reveal reveal-3">
-      <span class="scd-skip-tag">SCD 3 · explicitly skipped</span>
-      <span class="scd-skip-text">"Add column for prior value" loses the deeper trail. Socioeconomic snapshots span <b style="color:var(--paper);">more than three</b> ACS revisions — we need the full version chain, which is exactly what Type 2 gives.</span>
-    </div>
   </section>
 
   <!-- 12 — BIG DATA JUSTIFICATION -->
-  <section class="slide split" data-section="bigdata">
-    <div class="left">
-      <div class="eyebrow reveal">§ 07 · The big-data component</div>
-      <h2 class="headline reveal reveal-2">Spark for <em>volume.</em><br>S3 + Parquet for <em>variety.</em></h2>
-      <p class="body muted reveal reveal-3">The rubric asks for one big-data technology with justification. We bring two — both visible in the diagram, both taught in class, both load-bearing rather than decorative.</p>
-      <div class="refs reveal reveal-4">
-        <div class="ref">Spark<b>DataFrame joins, in-memory DAG execution</b></div>
-        <div class="ref">Lakehouse<b>S3 + Glue Catalog + Spark + Athena</b></div>
-        <div class="ref">Columnar<b>Parquet on the silver tier</b></div>
+  <section class="slide bigdata-slide" data-section="bigdata">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 07 · The big-data component</div>
+        <h2 class="headline" style="max-width: 30ch;"><em>Volume.</em> <em>Variety.</em> Spark holds both.</h2>
       </div>
+      <small class="fineprint">Two of the three V's are load-bearing here — Spark for joins at scale, the lakehouse for read-many across formats.</small>
     </div>
 
-    <div class="right">
-      <div class="cards reveal reveal-3">
-        <div class="card">
-          <div class="num">V₁</div>
-          <div class="h">Volume — Spark on Glue</div>
-          <p class="b">~ 2.5 M rows across crime, arrests and weather, joined on date + hour + community area + IUCR code. PySpark DataFrames do this in minutes; pandas would buckle and would miss the point of the brief's "big-data" half.</p>
+    <div class="bigdata-grid reveal reveal-2">
+
+      <article class="bd-panel bd-volume">
+        <div class="bd-V">V</div>
+        <header>
+          <div class="bd-tag">first V · scale</div>
+          <h3>Volume</h3>
+        </header>
+
+        <div class="bd-stat">
+          <div class="num">~ 2.5<em>M</em></div>
+          <div class="lbl">rows under join</div>
         </div>
-        <div class="card">
-          <div class="num">V₂</div>
-          <div class="h">Variety — S3 lake + Parquet</div>
-          <p class="b">CSV from four sources, JSON from one, all landed in the same bucket. Schema-on-read in bronze, columnar Parquet in silver. The Glue Catalog is the metastore that lets Spark and Athena read the same files without duplicating definitions.</p>
+
+        <ul class="bd-bars">
+          <li><span class="lbl">Crimes</span><span class="barwrap"><span class="bar" style="width: 100%;"></span></span><span class="val">1.5 M</span></li>
+          <li><span class="lbl">Arrests</span><span class="barwrap"><span class="bar" style="width: 47%;"></span></span><span class="val">700 k</span></li>
+          <li><span class="lbl">Weather</span><span class="barwrap"><span class="bar" style="width: 24%;"></span></span><span class="val">365 k</span></li>
+        </ul>
+
+        <footer>
+          <p>Joined on date · hour · community area · IUCR. PySpark DataFrames do this in minutes; pandas would buckle and would miss the point of the brief's big-data half.</p>
+          <span class="bd-tech">PySpark on Glue</span>
+        </footer>
+      </article>
+
+      <article class="bd-panel bd-variety">
+        <div class="bd-V">V</div>
+        <header>
+          <div class="bd-tag">second V · shape</div>
+          <h3>Variety</h3>
+        </header>
+
+        <div class="bd-stat">
+          <div class="num">5<em> ×</em> 2</div>
+          <div class="lbl">sources × formats</div>
         </div>
-        <div class="card" style="border-style: dashed; opacity: .7;">
-          <div class="num">∅</div>
-          <div class="h" style="color: var(--paper-dim);">KV store · rejected</div>
-          <p class="b">"Infrequent updates + fast lookup" describes neither this dataset nor any real query in the BI layer. Adding ElastiCache just to score points would be cargo cult.</p>
-        </div>
-        <div class="card" style="border-style: dashed; opacity: .7;">
-          <div class="num">∅</div>
-          <div class="h" style="color: var(--paper-dim);">EMR · rejected</div>
-          <p class="b">EMR runs the same Spark engine that Glue manages for us. The cluster overhead is not justified by 2.5 M rows.</p>
-        </div>
-      </div>
+
+        <ul class="bd-formats">
+          <li class="f-csv"><b>CSV</b><span>4 sources — Crimes, IUCR, Socio-economics, Arrests (Socrata)</span></li>
+          <li class="f-json"><b>JSON</b><span>1 source — Open-Meteo hourly weather archive</span></li>
+          <li class="f-parquet"><b>Parquet</b><span>silver tier — columnar with predicate push-down</span></li>
+        </ul>
+
+        <footer>
+          <p>Schema-on-read in bronze, columnar Parquet in silver. The Glue Catalog is the metastore that lets Spark and Athena read the same files without duplicate definitions.</p>
+          <span class="bd-tech">S3 + Catalog + Athena</span>
+        </footer>
+      </article>
+
     </div>
   </section>
 
@@ -1763,7 +2215,7 @@ pre.mono .h{ color: var(--dusk); }
         <div class="eyebrow">§ 08 · Orchestration</div>
         <h2 class="headline">A small Glue Workflow, <em>shaped like an Airflow DAG.</em></h2>
       </div>
-      <small class="fineprint">EventBridge fires the workflow · MWAA priced out ("not free" base) · Airflow on EC2 kept as alternative</small>
+      <small class="fineprint">EventBridge fires the workflow · seven steps end with a SPICE refresh on QuickSight</small>
     </div>
 
     <div class="diagram dag-diagram reveal reveal-2">
@@ -1841,9 +2293,9 @@ pre.mono .h{ color: var(--dusk); }
     </div>
 
     <div class="row-gap reveal reveal-3" style="margin-top: 24px;">
-      <span class="tag ember"><span class="pip"></span>Picked: EventBridge → Glue Workflow</span>
-      <span class="tag"><span class="pip"></span>Alt 1: Airflow on EC2 — viable, more ops</span>
-      <span class="tag"><span class="pip"></span>Alt 2: MWAA — rejected on cost ($350/mo base)</span>
+      <span class="tag ember"><span class="pip"></span>EventBridge → Glue Workflow</span>
+      <span class="tag dusk"><span class="pip"></span>seven steps · single DAG</span>
+      <span class="tag"><span class="pip"></span>idempotent — re-run a date safely</span>
     </div>
   </section>
 
