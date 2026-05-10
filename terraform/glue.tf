@@ -18,18 +18,18 @@ resource "aws_glue_catalog_database" "silver" {
 
 # ---------------------------------------------------------------------------
 # Glue script + extra-py-files uploads (S3-hosted, re-uploaded on file change)
+#
+# We ship the bronze_to_silver helper modules as a single .zip rather than as
+# loose .py files. AWS Glue's --extra-py-files flattens loose .py files into
+# a single working directory on sys.path, which (a) collides duplicate names
+# (e.g., bronze_to_silver/__init__.py vs sources/__init__.py) and (b) breaks
+# relative imports because each .py becomes a top-level module. A .zip is
+# added to sys.path *as a unit* so the package directory structure inside is
+# preserved and Python's zipimport handles it natively.
 # ---------------------------------------------------------------------------
 
 locals {
   glue_job_src_root = "${path.module}/../src/glue_jobs/bronze_to_silver"
-
-  # Every .py inside the bronze_to_silver package, relative to glue_job_src_root.
-  glue_job_all_py = fileset(local.glue_job_src_root, "**/*.py")
-
-  # Everything except main.py is shipped via --extra-py-files.
-  glue_job_extra_py_files = toset([
-    for f in local.glue_job_all_py : f if f != "main.py"
-  ])
 }
 
 resource "aws_s3_object" "bronze_to_silver_script" {
@@ -42,14 +42,27 @@ resource "aws_s3_object" "bronze_to_silver_script" {
   tags = local.common_tags
 }
 
-resource "aws_s3_object" "bronze_to_silver_extra_py" {
-  for_each = local.glue_job_extra_py_files
+# Zip the helper package excluding main.py (the entry script) and any
+# Python build artefacts that would churn the zip's MD5 between runs.
+data "archive_file" "bronze_to_silver_libs" {
+  type        = "zip"
+  source_dir  = local.glue_job_src_root
+  output_path = "${path.module}/.terraform/bronze_to_silver_libs.zip"
+  excludes = [
+    "main.py",
+    "**/__pycache__",
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.pyo",
+  ]
+}
 
+resource "aws_s3_object" "bronze_to_silver_libs" {
   bucket       = aws_s3_bucket.raw.id
-  key          = "${var.glue_scripts_prefix}/bronze_to_silver/${each.value}"
-  source       = "${local.glue_job_src_root}/${each.value}"
-  etag         = filemd5("${local.glue_job_src_root}/${each.value}")
-  content_type = "text/x-python"
+  key          = "${var.glue_scripts_prefix}/bronze_to_silver/libs.zip"
+  source       = data.archive_file.bronze_to_silver_libs.output_path
+  etag         = data.archive_file.bronze_to_silver_libs.output_md5
+  content_type = "application/zip"
 
   tags = local.common_tags
 }
@@ -123,14 +136,17 @@ resource "aws_iam_role_policy" "glue_s3_access" {
         Resource = "${aws_s3_bucket.raw.arn}/${var.glue_scripts_prefix}/*"
       },
       {
-        Sid    = "ReadWriteGlueTemp"
+        Sid    = "ReadWriteGlueTempAndEvents"
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:PutObject",
           "s3:DeleteObject"
         ]
-        Resource = "${aws_s3_bucket.raw.arn}/glue/*"
+        Resource = [
+          "${aws_s3_bucket.raw.arn}/glue/tmp/*",
+          "${aws_s3_bucket.raw.arn}/glue/spark-events/*"
+        ]
       }
     ]
   })
@@ -172,16 +188,15 @@ resource "aws_glue_job" "bronze_to_silver" {
     "--enable-spark-ui"                  = "true"
     "--TempDir"                          = "s3://${aws_s3_bucket.raw.bucket}/glue/tmp/"
     "--spark-event-logs-path"            = "s3://${aws_s3_bucket.raw.bucket}/glue/spark-events/"
-    "--source"                           = var.glue_supported_sources[0]
-    "--raw_bucket"                       = aws_s3_bucket.raw.bucket
-    "--raw_prefix"                       = "raw"
-    "--silver_prefix"                    = var.silver_prefix
-    "--bronze_database"                  = aws_glue_catalog_database.bronze.name
-    "--silver_database"                  = aws_glue_catalog_database.silver.name
-    "--extra-py-files" = join(
-      ",",
-      [for o in aws_s3_object.bronze_to_silver_extra_py : "s3://${aws_s3_bucket.raw.bucket}/${o.key}"]
-    )
+    # Default --source is for ad-hoc smoke runs (e.g., aws glue start-job-run
+    # without arguments). Workflow trigger overrides this per-source.
+    "--source"          = var.glue_supported_sources[0]
+    "--raw_bucket"      = aws_s3_bucket.raw.bucket
+    "--raw_prefix"      = "raw"
+    "--silver_prefix"   = var.silver_prefix
+    "--bronze_database" = aws_glue_catalog_database.bronze.name
+    "--silver_database" = aws_glue_catalog_database.silver.name
+    "--extra-py-files"  = "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.bronze_to_silver_libs.key}"
   }
 
   depends_on = [

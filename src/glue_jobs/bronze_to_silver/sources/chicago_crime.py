@@ -56,6 +56,7 @@ SILVER_PARTITION_COLS = ["_ingest_year"]
 
 # Sentinel year used for rows whose ``date`` failed to parse, so the
 # partitioned write does not crash and the bad rows are easy to triage.
+# Must fit ``ShortType`` (max 32767), which 9999 does.
 _PARTITION_NULL_SENTINEL = 9999
 
 _logger = logging.getLogger(__name__)

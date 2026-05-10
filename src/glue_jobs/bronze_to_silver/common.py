@@ -78,6 +78,9 @@ def dedup_latest(
     key_cols = list(key_cols)
     order_cols = list(order_cols)
 
+    # Reserved helper column name; prefixed and suffixed to minimise the
+    # chance of colliding with a real source column.
+    helper = "__dedup_rn__"
     window = Window.partitionBy(*key_cols).orderBy(*order_cols)
-    ranked = df.withColumn("_dedup_rn", F.row_number().over(window))
-    return ranked.where(F.col("_dedup_rn") == 1).drop("_dedup_rn")
+    ranked = df.withColumn(helper, F.row_number().over(window))
+    return ranked.where(F.col(helper) == 1).drop(helper)

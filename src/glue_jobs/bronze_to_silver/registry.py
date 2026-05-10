@@ -14,7 +14,15 @@ must export:
 
 from __future__ import annotations
 
-from .sources import chicago_crime
+# Dual-import pattern (matches main.py and chicago_crime.py): when this
+# module is loaded as a top-level module from inside the libs.zip on Glue,
+# the package-relative form raises and we fall back to the absolute import
+# against the zip-root namespace. Under pytest the package-relative form
+# is the one that succeeds.
+try:  # pragma: no cover
+    from .sources import chicago_crime
+except ImportError:  # pragma: no cover
+    from sources import chicago_crime  # type: ignore[no-redef]
 
 
 REGISTRY = {
