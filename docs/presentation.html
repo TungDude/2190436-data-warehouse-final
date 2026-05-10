@@ -443,7 +443,6 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   font-family: var(--display); font-weight: 500; font-size: 18px; line-height: 1.1; margin: 8px 0 4px 0;
 }
 .svc .item .role{ font-size: 13px; color: var(--paper-dim); margin: 0 0 8px 0; line-height: 1.4; }
-.svc .item .lect{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ember); }
 .svc .item .pin{
   position:absolute; top: 12px; right: 12px;
   font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--paper-dim);
@@ -536,7 +535,7 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   grid-column: 1 / -1; font-size: 12.5px; color: var(--paper-dim); margin-top: 4px; line-height: 1.5;
 }
 
-/* DAG */
+/* DAG (legacy — kept in case other slides use it) */
 .dag{
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -561,6 +560,111 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 .dag .step.spark{ border-color: rgba(227,107,45,.4); background: rgba(227,107,45,.04); }
 .dag .step.spark .t{ color: var(--ember-soft); }
 .dag .arrow{ display:none; }
+
+/* SVG diagram (architecture, schema, orchestration) */
+.diagram-slide{
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+.diagram{
+  width: 100%;
+  margin-top: 6px;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.diagram svg{
+  width: 100%;
+  max-height: calc(100vh - 260px);
+  height: auto;
+  display: block;
+}
+.diagram.star{ width: 100%; }
+.diagram.star svg{ max-height: calc(100vh - 200px); }
+/* nodes */
+.diagram .dg-node{
+  fill: rgba(239,233,221,.025);
+  stroke: rgba(239,233,221,.22);
+  stroke-width: 1;
+}
+.diagram .dg-node-bronze{ stroke: rgba(201,125,58,.45); fill: rgba(201,125,58,.05); }
+.diagram .dg-node-silver{ stroke: rgba(183,189,192,.36); fill: rgba(183,189,192,.04); }
+.diagram .dg-node-gold  { stroke: rgba(243,165,114,.55); fill: rgba(227,107,45,.06); }
+.diagram .dg-node-spark { stroke: rgba(227,107,45,.55); fill: rgba(227,107,45,.04); }
+.diagram .dg-node-bi    { stroke: rgba(110,141,160,.5);  fill: rgba(110,141,160,.05); }
+.diagram .dg-node-side  { stroke: rgba(239,233,221,.18); fill: rgba(239,233,221,.015); stroke-dasharray: 3 3; }
+
+.diagram .dg-band{
+  fill: rgba(227,107,45,.06);
+  stroke: rgba(227,107,45,.4);
+  stroke-width: 1;
+}
+.diagram .dg-band-label{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; letter-spacing: .14em;
+  fill: var(--ember);
+  text-transform: uppercase;
+}
+
+/* lines */
+.diagram .dg-line{
+  fill: none;
+  stroke: rgba(239,233,221,.42);
+  stroke-width: 1.4;
+}
+.diagram .dg-line-soft{ stroke: rgba(239,233,221,.28); stroke-width: 1; }
+.diagram .dg-line-em  { stroke: rgba(227,107,45,.7);  stroke-width: 1.6; }
+
+/* text */
+.diagram .dg-name{
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 22px;
+  fill: var(--paper);
+}
+.diagram .dg-name-sm{
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 16px;
+  fill: var(--paper);
+}
+.diagram .dg-bronze { fill: #C97D3A; }
+.diagram .dg-silver { fill: #B7BDC0; }
+.diagram .dg-gold   { fill: var(--ember-soft); }
+.diagram .dg-ember  { fill: var(--ember-soft); }
+.diagram .dg-dusk   { fill: var(--dusk); }
+
+.diagram .dg-tag{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  fill: var(--paper-dim);
+}
+.diagram .dg-tag-ember{ fill: var(--ember); }
+.diagram .dg-tag-dusk { fill: var(--dusk); }
+
+.diagram .dg-meta{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .04em;
+  fill: var(--paper-dim);
+}
+.diagram .dg-meta-sm{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .04em;
+  fill: var(--paper-dim);
+}
+
+.diagram .dg-bracket-label{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  fill: var(--paper-dim);
+}
 
 /* dashboards */
 .dash{
@@ -747,43 +851,11 @@ pre.mono .h{ color: var(--dusk); }
     </div>
   </section>
 
-  <!-- 02 — THE BRIEF -->
-  <section class="slide split" data-section="brief">
-    <div class="left">
-      <div class="eyebrow reveal">§ 01 · The brief</div>
-      <h2 class="headline reveal reveal-2">A full data-warehouse pipeline on AWS, with one foot <em>in big data.</em></h2>
-      <p class="body reveal reveal-3 muted">Twenty percent of the course grade. Six rubric line-items spanning data acquisition, dimensional design, big-data processing, automation, BI, and presentation. The architecture has to honour both halves of the syllabus — Kimball on the left, Spark on the right.</p>
-      <div class="refs reveal reveal-4">
-        <div class="ref">Source<b>requirements/Project_DW_Big_Data_Implementation_2025.md</b></div>
-        <div class="ref">Deliverable<b>Two YouTube videos · One Google Drive link</b></div>
-      </div>
-    </div>
-    <div class="right">
-      <div class="kicker reveal reveal-2">Score · 20 % of final grade</div>
-      <div class="scoreboard reveal reveal-3">
-        <div class="cell"><div class="pct">2%</div><div class="lbl">Item 01</div><div class="ttl">Data Sources</div></div>
-        <div class="cell"><div class="pct">4%</div><div class="lbl">Item 02</div><div class="ttl">Data Warehouse + ETL</div></div>
-        <div class="cell"><div class="pct">4%</div><div class="lbl">Item 03</div><div class="ttl">Big-Data Component</div></div>
-        <div class="cell"><div class="pct">1%</div><div class="lbl">Item 04</div><div class="ttl">Automatic Workflow</div></div>
-        <div class="cell"><div class="pct">4%</div><div class="lbl">Item 05</div><div class="ttl">BI Dashboards</div></div>
-        <div class="cell"><div class="pct">5%</div><div class="lbl">Item 06</div><div class="ttl">Presentation × 2</div></div>
-      </div>
-      <div class="cluster reveal reveal-4" style="margin-top: 22px;">
-        <span class="tag ember"><span class="pip"></span>≥ 1 fact, atomic grain</span>
-        <span class="tag ember"><span class="pip"></span>conformed bus matrix</span>
-        <span class="tag ember"><span class="pip"></span>every dim implements an SCD</span>
-        <span class="tag dusk"><span class="pip"></span>Spark or Data Lake or KV</span>
-        <span class="tag dusk"><span class="pip"></span>Glue Scheduler / Airflow</span>
-        <span class="tag moss"><span class="pip"></span>QuickSight, ≥ 2 dashboards</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- 03 — THE DATA -->
+  <!-- 02 — THE DATA -->
   <section class="slide full" data-section="data">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 02 · The data</div>
+        <div class="eyebrow">§ 01 · The data</div>
         <h2 class="headline">Five sources, two formats, <em>one city.</em></h2>
       </div>
       <small class="fineprint">Comfortably above the 100 000-row threshold; covers CSV and JSON to satisfy the variety requirement.</small>
@@ -854,10 +926,10 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="medallion">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 03 · Medallion zoning</div>
-        <h2 class="headline">Bronze, silver, <em>gold</em> — the same names the lecture uses.</h2>
+        <div class="eyebrow">§ 02 · Medallion zoning</div>
+        <h2 class="headline">Bronze, silver, <em>gold</em> — three quality tiers, one bucket.</h2>
       </div>
-      <small class="fineprint">Lecture 13, Slide 47 · Lakehouse design pattern</small>
+      <small class="fineprint">Lakehouse design pattern · Bronze raw, Silver standardised, Gold curated</small>
     </div>
 
     <div class="medallion reveal reveal-2">
@@ -888,65 +960,170 @@ pre.mono .h{ color: var(--dusk); }
 
     <hr class="hair"/>
     <p class="body muted reveal reveal-3" style="max-width: 90ch;">
-      The course teaches both halves of this picture. <b style="color:var(--paper);">Lecture 01 Slide 14</b> defines the Source → Staging → Presentation → Access component model; <b style="color:var(--paper);">Lecture 07 Slide 188</b> shows the lakehouse stack of S3 + Catalog + Spark + Athena. Bronze + silver are the lakehouse, gold is the warehouse, and the two sit side-by-side instead of in opposition — exactly the "DW and DL used together" pattern from <b style="color:var(--paper);">Lecture 01 Slide 25</b>.
+      The two halves of the brief map cleanly onto the same picture: the
+      classic <b style="color:var(--paper);">Source → Staging → Presentation → Access</b>
+      component model on the warehouse side, and the modern
+      <b style="color:var(--paper);">S3 + Catalog + Spark + Athena</b> lakehouse stack
+      on the lake side. Bronze + silver are the lakehouse, gold is the
+      warehouse, and the two coexist rather than compete.
     </p>
   </section>
 
-  <!-- 06 — END-TO-END FLOW -->
-  <section class="slide full" data-section="flow">
+  <!-- 06 — ARCHITECTURE DIAGRAM -->
+  <section class="slide diagram-slide" data-section="flow">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 04 · End-to-end</div>
+        <div class="eyebrow">§ 03 · Architecture</div>
         <h2 class="headline">From a public API to a <em>QuickSight pixel.</em></h2>
       </div>
-      <small class="fineprint">Each step on this DAG is a managed AWS primitive — no standing servers.</small>
+      <small class="fineprint">Every box is a managed AWS primitive — no standing servers.</small>
     </div>
 
-    <div class="dag reveal reveal-2">
-      <div class="step">
-        <div class="n">01</div>
-        <div class="t">EventBridge<br>Scheduler</div>
-        <div class="d">Daily 02:00 America/Chicago. Fans out to five ingest Lambdas in parallel.</div>
-      </div>
-      <div class="step">
-        <div class="n">02</div>
-        <div class="t">Lambda ×5<br>Fetchers</div>
-        <div class="d">Thin HTTP-GET workers. Write raw payloads to S3 bronze. No transform.</div>
-      </div>
-      <div class="step">
-        <div class="n">03</div>
-        <div class="t">Glue Crawler →<br>Data Catalog</div>
-        <div class="d">Discovers new bronze partitions. Catalog acts as the Hive metastore.</div>
-      </div>
-      <div class="step spark">
-        <div class="n">04</div>
-        <div class="t">Glue PySpark<br>bronze → silver</div>
-        <div class="d">Cast types, dedupe by source PK on latest <code style="font-family:var(--mono);font-size:11px;">updated_on</code>, write Parquet.</div>
-      </div>
-      <div class="step spark">
-        <div class="n">05</div>
-        <div class="t">Glue PySpark<br>silver → gold</div>
-        <div class="d">Surrogate-key assign, SCD merge, null → "Unknown" coalesce, upsert into RDS.</div>
-      </div>
-      <div class="step">
-        <div class="n">06</div>
-        <div class="t">QuickSight<br>SPICE refresh</div>
-        <div class="d">Imports <code style="font-family:var(--mono);font-size:11px;">dw.*</code> via JDBC. Two dashboards rebuild within the hour.</div>
-      </div>
-    </div>
+    <div class="diagram reveal reveal-2">
+      <svg viewBox="0 0 1500 640" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Pipeline architecture diagram">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="rgba(239,233,221,.42)"/>
+          </marker>
+          <marker id="arrow-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="rgba(239,233,221,.28)"/>
+          </marker>
+          <marker id="arrow-ember" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="rgba(227,107,45,.7)"/>
+          </marker>
+        </defs>
 
-    <hr class="hair"/>
+        <!-- EventBridge banner -->
+        <g class="dg-event">
+          <rect x="510" y="0" width="480" height="40" rx="3" class="dg-band"/>
+          <text x="750" y="25" text-anchor="middle" class="dg-band-label">⏱  EventBridge Scheduler · daily 02:00 America/Chicago</text>
+        </g>
 
-    <div class="row-gap reveal reveal-3" style="gap: 10px;">
-      <span class="tag"><span class="pip"></span>S3</span>
-      <span class="tag"><span class="pip"></span>Lambda</span>
-      <span class="tag"><span class="pip"></span>EventBridge Scheduler</span>
-      <span class="tag"><span class="pip"></span>Glue Crawler</span>
-      <span class="tag"><span class="pip"></span>Glue Data Catalog</span>
-      <span class="tag ember"><span class="pip"></span>Glue ETL · PySpark</span>
-      <span class="tag"><span class="pip"></span>RDS PostgreSQL 16</span>
-      <span class="tag"><span class="pip"></span>Athena <small style="text-transform:none;letter-spacing:0;opacity:.7;">(supporting)</small></span>
-      <span class="tag dusk"><span class="pip"></span>QuickSight</span>
+        <!-- fan-out lines from EventBridge to lambdas -->
+        <g class="dg-fan">
+          <path d="M 750 40 L 390 92" class="dg-line dg-line-soft" marker-end="url(#arrow-soft)"/>
+          <path d="M 750 40 L 570 92" class="dg-line dg-line-soft" marker-end="url(#arrow-soft)"/>
+          <path d="M 750 40 L 750 92" class="dg-line dg-line-soft" marker-end="url(#arrow-soft)"/>
+          <path d="M 750 40 L 930 92" class="dg-line dg-line-soft" marker-end="url(#arrow-soft)"/>
+          <path d="M 750 40 L 1110 92" class="dg-line dg-line-soft" marker-end="url(#arrow-soft)"/>
+        </g>
+
+        <!-- Lambda row: 5 fetchers -->
+        <g class="dg-lambdas">
+          <!-- L1 -->
+          <rect x="320" y="100"  width="140" height="56" rx="3" class="dg-node"/>
+          <text x="390" y="121" text-anchor="middle" class="dg-tag">λ  ingest</text>
+          <text x="390" y="142" text-anchor="middle" class="dg-name">Crimes</text>
+
+          <rect x="500" y="100"  width="140" height="56" rx="3" class="dg-node"/>
+          <text x="570" y="121" text-anchor="middle" class="dg-tag">λ  ingest</text>
+          <text x="570" y="142" text-anchor="middle" class="dg-name">IUCR</text>
+
+          <rect x="680" y="100"  width="140" height="56" rx="3" class="dg-node"/>
+          <text x="750" y="121" text-anchor="middle" class="dg-tag">λ  ingest</text>
+          <text x="750" y="142" text-anchor="middle" class="dg-name">Socio-econ</text>
+
+          <rect x="860" y="100"  width="140" height="56" rx="3" class="dg-node"/>
+          <text x="930" y="121" text-anchor="middle" class="dg-tag">λ  ingest</text>
+          <text x="930" y="142" text-anchor="middle" class="dg-name">Weather</text>
+
+          <rect x="1040" y="100" width="140" height="56" rx="3" class="dg-node"/>
+          <text x="1110" y="121" text-anchor="middle" class="dg-tag">λ  ingest</text>
+          <text x="1110" y="142" text-anchor="middle" class="dg-name">Arrests</text>
+        </g>
+
+        <!-- arrows lambdas → bronze -->
+        <g class="dg-fan">
+          <path d="M 390 156 L 600 198"  class="dg-line" marker-end="url(#arrow)"/>
+          <path d="M 570 156 L 680 198"  class="dg-line" marker-end="url(#arrow)"/>
+          <path d="M 750 156 L 750 198"  class="dg-line" marker-end="url(#arrow)"/>
+          <path d="M 930 156 L 820 198"  class="dg-line" marker-end="url(#arrow)"/>
+          <path d="M 1110 156 L 900 198" class="dg-line" marker-end="url(#arrow)"/>
+        </g>
+
+        <!-- S3 Bronze -->
+        <g class="dg-zone">
+          <rect x="300" y="200" width="900" height="64" rx="3" class="dg-node dg-node-bronze"/>
+          <text x="320" y="226" class="dg-tag">layer 01 · lake</text>
+          <text x="320" y="252" class="dg-name dg-bronze">Amazon S3 — Bronze</text>
+          <text x="1180" y="252" text-anchor="end" class="dg-meta">raw/&lt;source&gt;/ingest_date=YYYY-MM-DD/  ·  CSV + JSON</text>
+        </g>
+
+        <!-- Sidebar: Glue Crawler + Catalog -->
+        <g class="dg-side">
+          <rect x="1230" y="200" width="240" height="64" rx="3" class="dg-node dg-node-side"/>
+          <text x="1242" y="222" class="dg-tag">aws glue</text>
+          <text x="1242" y="246" class="dg-name-sm">Crawler  →  Data Catalog</text>
+          <path d="M 1200 232 L 1230 232" class="dg-line dg-line-soft" marker-end="url(#arrow-soft)"/>
+        </g>
+
+        <!-- arrow bronze → spark1 -->
+        <path d="M 750 264 L 750 290" class="dg-line" marker-end="url(#arrow)"/>
+
+        <!-- Spark bronze → silver -->
+        <g class="dg-spark">
+          <rect x="300" y="292" width="900" height="64" rx="3" class="dg-node dg-node-spark"/>
+          <text x="320" y="318" class="dg-tag dg-tag-ember">aws glue · pyspark</text>
+          <text x="320" y="344" class="dg-name dg-ember">bronze  →  silver</text>
+          <text x="1180" y="344" text-anchor="end" class="dg-meta">cast types · dedupe latest · write Parquet</text>
+        </g>
+
+        <!-- arrow spark1 → silver -->
+        <path d="M 750 356 L 750 382" class="dg-line" marker-end="url(#arrow)"/>
+
+        <!-- S3 Silver -->
+        <g class="dg-zone">
+          <rect x="300" y="384" width="900" height="64" rx="3" class="dg-node dg-node-silver"/>
+          <text x="320" y="410" class="dg-tag">layer 02 · lake</text>
+          <text x="320" y="436" class="dg-name dg-silver">Amazon S3 — Silver</text>
+          <text x="1180" y="436" text-anchor="end" class="dg-meta">standardized/&lt;source&gt;/year=YYYY/  ·  Parquet</text>
+        </g>
+
+        <!-- Sidebar: Athena -->
+        <g class="dg-side">
+          <rect x="1230" y="384" width="240" height="64" rx="3" class="dg-node dg-node-side"/>
+          <text x="1242" y="406" class="dg-tag">supporting</text>
+          <text x="1242" y="430" class="dg-name-sm">Amazon Athena</text>
+          <text x="1242" y="444" class="dg-meta-sm">ad-hoc SQL on silver</text>
+          <path d="M 1200 416 L 1230 416" class="dg-line dg-line-soft" marker-end="url(#arrow-soft)"/>
+        </g>
+
+        <!-- arrow silver → spark2 -->
+        <path d="M 750 448 L 750 474" class="dg-line" marker-end="url(#arrow)"/>
+
+        <!-- Spark silver → gold -->
+        <g class="dg-spark">
+          <rect x="300" y="476" width="900" height="64" rx="3" class="dg-node dg-node-spark"/>
+          <text x="320" y="502" class="dg-tag dg-tag-ember">aws glue · pyspark</text>
+          <text x="320" y="528" class="dg-name dg-ember">silver  →  gold</text>
+          <text x="1180" y="528" text-anchor="end" class="dg-meta">surrogate keys · SCD merge · null → Unknown · upsert</text>
+        </g>
+
+        <!-- arrow spark2 → gold -->
+        <path d="M 750 540 L 750 566" class="dg-line dg-line-em" marker-end="url(#arrow-ember)"/>
+
+        <!-- RDS Gold + QuickSight in same row -->
+        <g class="dg-zone">
+          <rect x="300" y="568" width="560" height="64" rx="3" class="dg-node dg-node-gold"/>
+          <text x="320" y="594" class="dg-tag dg-tag-ember">layer 03 · warehouse</text>
+          <text x="320" y="620" class="dg-name dg-gold">RDS PostgreSQL — Gold</text>
+          <text x="840" y="620" text-anchor="end" class="dg-meta">dw.* · star schema</text>
+        </g>
+
+        <path d="M 860 600 L 920 600" class="dg-line" marker-end="url(#arrow)"/>
+
+        <g class="dg-bi">
+          <rect x="922" y="568" width="278" height="64" rx="3" class="dg-node dg-node-bi"/>
+          <text x="938" y="594" class="dg-tag dg-tag-dusk">bi · spice</text>
+          <text x="938" y="620" class="dg-name dg-dusk">Amazon QuickSight</text>
+        </g>
+
+        <!-- Glue Workflow bracket -->
+        <g class="dg-bracket">
+          <path d="M 1230 200 L 1210 200 L 1210 540 L 1230 540" class="dg-line dg-line-soft"/>
+          <text x="1188" y="375" text-anchor="end" transform="rotate(-90 1188 375)" class="dg-bracket-label">orchestrated · Glue Workflows</text>
+        </g>
+      </svg>
     </div>
   </section>
 
@@ -954,26 +1131,26 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="services">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 05 · The stack</div>
+        <div class="eyebrow">§ 04 · The stack</div>
         <h2 class="headline">Eleven services, <em>chosen with restraint.</em></h2>
       </div>
-      <small class="fineprint">Every cell below is annotated with the lecture it traces back to.</small>
+      <small class="fineprint">Every service below is here for a reason — and every alternative was rejected for one.</small>
     </div>
 
     <div class="svc reveal reveal-2">
-      <div class="item"><div class="pin">01</div><div class="lect">Lec 07 · 09</div><div class="name">Amazon S3</div><div class="role">Bronze + Silver storage. The data lake.</div></div>
-      <div class="item"><div class="pin">02</div><div class="lect">—</div><div class="name">AWS Lambda</div><div class="role">One-per-source ingest workers. &lt; 50 MB/day fits Lambda cleanly.</div></div>
-      <div class="item"><div class="pin">03</div><div class="lect">Lec 13</div><div class="name">EventBridge Scheduler</div><div class="role">Native cron. Already firing the Chicago Crime fetcher.</div></div>
-      <div class="item"><div class="pin">04</div><div class="lect">Lec 07</div><div class="name">Glue Data Catalog</div><div class="role">Hive-compatible metastore for the lake.</div></div>
-      <div class="item"><div class="pin">05</div><div class="lect">Lec 09</div><div class="name">Glue Crawler</div><div class="role">Schema discovery. Saves writing DDL for raw files.</div></div>
-      <div class="item"><div class="pin">06</div><div class="lect">Lec 11</div><div class="name">Glue ETL · PySpark</div><div class="role">The big-data component. Bronze→Silver and Silver→Gold transforms.</div></div>
-      <div class="item"><div class="pin">07</div><div class="lect">Lec 01 · 04</div><div class="name">RDS PostgreSQL 16</div><div class="role">Gold layer. Star schema with SCD merges, identity surrogates.</div></div>
-      <div class="item"><div class="pin">08</div><div class="lect">Lec 07</div><div class="name">Amazon Athena</div><div class="role">Ad-hoc SQL on silver. Free per-query model — used for validation.</div></div>
-      <div class="item"><div class="pin">09</div><div class="lect">Lec 13</div><div class="name">Glue Workflows</div><div class="role">Crawler → Spark → Spark → asserts. Picked over MWAA for cost.</div></div>
-      <div class="item"><div class="pin">10</div><div class="lect">Lec 01</div><div class="name">Amazon QuickSight</div><div class="role">Two SPICE-backed dashboards, RDS connector.</div></div>
-      <div class="item"><div class="pin">11</div><div class="lect">—</div><div class="name">IAM · KMS · VPC</div><div class="role">Least-privilege roles, SSE on S3 + RDS, private subnets.</div></div>
+      <div class="item"><div class="pin">01</div><div class="name">Amazon S3</div><div class="role">Bronze + Silver storage. The data lake itself.</div></div>
+      <div class="item"><div class="pin">02</div><div class="name">AWS Lambda</div><div class="role">One-per-source ingest workers. &lt; 50 MB/day fits Lambda cleanly.</div></div>
+      <div class="item"><div class="pin">03</div><div class="name">EventBridge Scheduler</div><div class="role">Native cron. Already firing the Chicago Crime fetcher.</div></div>
+      <div class="item"><div class="pin">04</div><div class="name">Glue Data Catalog</div><div class="role">Hive-compatible metastore for the lake.</div></div>
+      <div class="item"><div class="pin">05</div><div class="name">Glue Crawler</div><div class="role">Schema discovery. Saves writing DDL for raw files.</div></div>
+      <div class="item"><div class="pin">06</div><div class="name">Glue ETL · PySpark</div><div class="role">The big-data component. Bronze→Silver and Silver→Gold transforms.</div></div>
+      <div class="item"><div class="pin">07</div><div class="name">RDS PostgreSQL 16</div><div class="role">Gold layer. Star schema with SCD merges, identity surrogates.</div></div>
+      <div class="item"><div class="pin">08</div><div class="name">Amazon Athena</div><div class="role">Ad-hoc SQL on silver Parquet. Free per-query — used for validation.</div></div>
+      <div class="item"><div class="pin">09</div><div class="name">Glue Workflows</div><div class="role">Crawler → Spark → Spark → asserts. Picked over MWAA for cost.</div></div>
+      <div class="item"><div class="pin">10</div><div class="name">Amazon QuickSight</div><div class="role">Two SPICE-backed dashboards, RDS connector.</div></div>
+      <div class="item"><div class="pin">11</div><div class="name">IAM · KMS · VPC</div><div class="role">Least-privilege roles, SSE on S3 + RDS, private subnets.</div></div>
       <div class="item" style="background: rgba(227,107,45,.04); border-color: rgba(227,107,45,.3);">
-        <div class="pin">∅</div><div class="lect" style="color: var(--paper-dim);">Anti-goals</div>
+        <div class="pin">∅</div>
         <div class="name" style="color: var(--paper-dim); font-style: italic;">Redshift · MSK · MWAA · DMS · ElastiCache · EMR · Lake Formation</div>
         <div class="role">Each rejected with a written reason. Restraint is part of the design.</div>
       </div>
@@ -985,76 +1162,97 @@ pre.mono .h{ color: var(--dusk); }
     <div class="num reveal">03</div>
     <div class="eyebrow reveal reveal-2">Section three</div>
     <h1 class="display reveal reveal-3">The <em>warehouse</em>,<br>by the book.</h1>
-    <p class="lede reveal reveal-4" style="margin-top: 22px;">Kimball's four-step process, applied step-by-step, with every decision traced back to a lecture slide.</p>
+    <p class="lede reveal reveal-4" style="margin-top: 22px;">Kimball's four-step process, applied step-by-step — grain, dimensions, facts, then everything else.</p>
   </section>
 
   <!-- 09 — STAR SCHEMA VISUAL -->
   <section class="slide split" data-section="star">
     <div class="left">
-      <div class="eyebrow reveal">§ 06 · Star schema</div>
+      <div class="eyebrow reveal">§ 05 · Star schema</div>
       <h2 class="headline reveal reveal-2">One fact at the centre. <em>Six dimensions</em> around it.</h2>
       <p class="body muted reveal reveal-3">The grain is one row per reported incident, identified by Chicago's stable <code style="font-family:var(--mono);">id</code>. Two role-playing date FKs (occurrence + report) reach back to <code style="font-family:var(--mono);">dim_date</code>. Hourly weather and an SCD2-tracked location dimension hang off the same fact.</p>
       <div class="refs reveal reveal-4">
         <div class="ref">Grain<b>One reported crime incident</b></div>
-        <div class="ref">Type<b>Transaction fact (Lec 03 Slide 11)</b></div>
+        <div class="ref">Type<b>Transaction fact, atomic grain</b></div>
         <div class="ref">Surrogates<b>BIGINT IDENTITY · YYYYMMDD smart key</b></div>
       </div>
     </div>
 
     <div class="right">
-      <div class="schema reveal reveal-3">
-        <div class="node" style="grid-column: 1; grid-row: 1;">
-          <div class="lbl">SCD 0</div>
-          <div class="nm">dim_date</div>
-          <div class="attrs">date_key · full_date · dow · is_weekend · is_holiday · month · quarter · year</div>
-        </div>
-        <div class="node" style="grid-column: 2; grid-row: 1;">
-          <div class="lbl">SCD 0</div>
-          <div class="nm">dim_time_of_day</div>
-          <div class="attrs">time_key (0–23) · hour_24 · am_pm · period_of_day</div>
-        </div>
-        <div class="node" style="grid-column: 3; grid-row: 1;">
-          <div class="lbl">SCD 2 + 1</div>
-          <div class="nm">dim_location</div>
-          <div class="attrs">community_area · district · ward · beat · block · pct_poverty · hardship_index · scd_*</div>
-        </div>
+      <div class="diagram star reveal reveal-3">
+        <svg viewBox="0 0 920 720" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Star schema diagram">
+          <!-- Connecting lines (drawn first so boxes overlap them cleanly) -->
+          <g class="dg-line dg-line-soft" fill="none">
+            <!-- top three dims → fact -->
+            <path d="M 150 130 L 380 250"/>
+            <path d="M 460 130 L 460 250"/>
+            <path d="M 770 130 L 540 250"/>
+            <!-- bottom three dims → fact -->
+            <path d="M 150 540 L 380 470"/>
+            <path d="M 460 540 L 460 470"/>
+            <path d="M 770 540 L 540 470"/>
+          </g>
 
-        <div class="node" style="grid-column: 1; grid-row: 2;">
-          <div class="lbl">SCD 1</div>
-          <div class="nm">dim_crime_flags</div>
-          <div class="attrs">flags_key · is_arrest · is_domestic · label</div>
-          <small class="fineprint" style="display:block; margin-top:8px; opacity:.6;">Junk dimension · Lec 05</small>
-        </div>
+          <!-- top row -->
+          <g>
+            <rect x="30"  y="40"  width="240" height="90" rx="3" class="dg-node"/>
+            <text x="42" y="62"  class="dg-tag">scd 0</text>
+            <text x="42" y="86"  class="dg-name-sm">dim_date</text>
+            <text x="42" y="106" class="dg-meta-sm">date_key · full_date · dow</text>
+            <text x="42" y="120" class="dg-meta-sm">is_weekend · month · year</text>
 
-        <div class="node fact" style="grid-column: 2; grid-row: 2;">
-          <div class="lbl">Transaction fact</div>
-          <div class="nm">fact_crime</div>
-          <div class="attrs">crime_id (NK) · case_number (DD) · occurrence_date_key · report_date_key · location_key · crime_type_key · weather_key · flags_key · incident_count · is_arrest · is_domestic · lat · lng</div>
-        </div>
+            <rect x="340" y="40"  width="240" height="90" rx="3" class="dg-node"/>
+            <text x="352" y="62"  class="dg-tag">scd 0</text>
+            <text x="352" y="86"  class="dg-name-sm">dim_time_of_day</text>
+            <text x="352" y="106" class="dg-meta-sm">time_key (0–23) · hour_24</text>
+            <text x="352" y="120" class="dg-meta-sm">am_pm · period_of_day</text>
 
-        <div class="node" style="grid-column: 3; grid-row: 2;">
-          <div class="lbl">SCD 2</div>
-          <div class="nm">dim_crime_type</div>
-          <div class="attrs">iucr (NK) · primary_type · description · fbi_code · index_code · scd_*</div>
-        </div>
+            <rect x="650" y="40"  width="240" height="90" rx="3" class="dg-node"/>
+            <text x="662" y="62"  class="dg-tag">scd 2 + 1 (hybrid)</text>
+            <text x="662" y="86"  class="dg-name-sm">dim_location</text>
+            <text x="662" y="106" class="dg-meta-sm">community_area · district</text>
+            <text x="662" y="120" class="dg-meta-sm">ward · beat · scd_*</text>
+          </g>
 
-        <div class="node" style="grid-column: 1; grid-row: 3;">
-          <div class="lbl">SCD 0</div>
-          <div class="nm">dim_weather</div>
-          <div class="attrs">weather_key · obs_date_key · obs_hour · weather_category · temp_band · precip_band</div>
-        </div>
-        <div class="node" style="grid-column: 2; grid-row: 3;">
-          <div class="lbl">SCD 1</div>
-          <div class="nm">dim_arrestee</div>
-          <div class="attrs">arrestee_key · race · age_band · sex</div>
-          <small class="fineprint" style="display:block; margin-top:8px; opacity:.6;">For optional fact_arrest</small>
-        </div>
-        <div class="node" style="grid-column: 3; grid-row: 3;">
-          <div class="lbl">Bridge</div>
-          <div class="nm">bridge_arrest_charge</div>
-          <div class="attrs">arrest_pk · crime_type_key · charge_position (1–4) · charge_class · charge_statute</div>
-          <small class="fineprint" style="display:block; margin-top:8px; opacity:.6;">Multi-valued · Lec 06</small>
-        </div>
+          <!-- centre fact -->
+          <g>
+            <rect x="270" y="250" width="380" height="220" rx="3" class="dg-node dg-node-spark"/>
+            <text x="285" y="276" class="dg-tag dg-tag-ember">transaction fact · atomic grain</text>
+            <text x="285" y="312" class="dg-name dg-ember" style="font-size: 30px;">fact_crime</text>
+            <line x1="285" x2="635" y1="328" y2="328" stroke="rgba(227,107,45,.35)" stroke-width="1"/>
+            <text x="285" y="350" class="dg-meta">crime_id (NK)  ·  case_number (DD)</text>
+            <text x="285" y="368" class="dg-meta">occurrence_date_key  ·  report_date_key</text>
+            <text x="285" y="386" class="dg-meta">location_key  ·  crime_type_key</text>
+            <text x="285" y="404" class="dg-meta">weather_key  ·  flags_key</text>
+            <line x1="285" x2="635" y1="416" y2="416" stroke="rgba(227,107,45,.18)" stroke-width="1" stroke-dasharray="2 3"/>
+            <text x="285" y="436" class="dg-meta-sm" style="fill: var(--paper);">incident_count · is_arrest · is_domestic</text>
+            <text x="285" y="454" class="dg-meta-sm" style="fill: var(--paper);">temp_c · precip_mm · lat · lng</text>
+          </g>
+
+          <!-- bottom row -->
+          <g>
+            <rect x="30"  y="540" width="240" height="92" rx="3" class="dg-node"/>
+            <text x="42" y="562"  class="dg-tag">scd 0</text>
+            <text x="42" y="586"  class="dg-name-sm">dim_weather</text>
+            <text x="42" y="606"  class="dg-meta-sm">weather_category · temp_band</text>
+            <text x="42" y="620"  class="dg-meta-sm">precip_band · obs_hour</text>
+
+            <rect x="340" y="540" width="240" height="92" rx="3" class="dg-node"/>
+            <text x="352" y="562" class="dg-tag">scd 1 · junk</text>
+            <text x="352" y="586" class="dg-name-sm">dim_crime_flags</text>
+            <text x="352" y="606" class="dg-meta-sm">flags_key · is_arrest</text>
+            <text x="352" y="620" class="dg-meta-sm">is_domestic · label</text>
+
+            <rect x="650" y="540" width="240" height="92" rx="3" class="dg-node"/>
+            <text x="662" y="562" class="dg-tag">scd 2</text>
+            <text x="662" y="586" class="dg-name-sm">dim_crime_type</text>
+            <text x="662" y="606" class="dg-meta-sm">iucr (NK) · primary_type</text>
+            <text x="662" y="620" class="dg-meta-sm">fbi_code · index_code · scd_*</text>
+          </g>
+
+          <!-- footer note -->
+          <text x="460" y="680" text-anchor="middle" class="dg-meta-sm" style="fill: var(--paper-dim);">Optional second business process · fact_arrest with dim_arrestee + bridge_arrest_charge (multi-valued, 1–4 charges)</text>
+        </svg>
       </div>
     </div>
   </section>
@@ -1063,10 +1261,10 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="bus">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 07 · Bus matrix</div>
+        <div class="eyebrow">§ 06 · Bus matrix</div>
         <h2 class="headline">Two business processes, <em>one set of dimensions.</em></h2>
       </div>
-      <small class="fineprint">Lecture 03 · Slide 36 · Conformed Dimension Bus Matrix</small>
+      <small class="fineprint">Conformed-dimension bus matrix · drives drill-across between facts</small>
     </div>
 
     <table class="bus reveal reveal-2">
@@ -1112,7 +1310,7 @@ pre.mono .h{ color: var(--dusk); }
     <hr class="hair"/>
 
     <p class="body muted reveal reveal-3" style="max-width: 92ch;">
-      Conformance gives us drill-across (<b style="color:var(--paper);">Lec 03 Slide 43</b>): for the same <code style="font-family:var(--mono);">dim_date.date_key</code>, how many crime reports vs. arrest events? The two facts join through the conformed dimensions, never directly. The same <code style="font-family:var(--mono);">dim_crime_type</code> serves both the primary type on a crime row and the IUCR-coded charges on an arrest bridge — one definition of "what kind of crime", reused.
+      Conformance gives us drill-across: for the same <code style="font-family:var(--mono);">dim_date.date_key</code>, how many crime reports vs. arrest events? The two facts join through the conformed dimensions, never directly. The same <code style="font-family:var(--mono);">dim_crime_type</code> serves both the primary type on a crime row and the IUCR-coded charges on an arrest bridge — one definition of "what kind of crime", reused.
     </p>
   </section>
 
@@ -1120,10 +1318,10 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="scd">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 08 · Slowly changing dimensions</div>
+        <div class="eyebrow">§ 07 · Slowly changing dimensions</div>
         <h2 class="headline">Every dimension implements an SCD. <em>Type chosen by intent.</em></h2>
       </div>
-      <small class="fineprint">Lecture 04 · Slides 5–17 · Rubric: "all dimension tables must implement SCD"</small>
+      <small class="fineprint">The rubric requires every dimension to implement an SCD — pick the right type per intent.</small>
     </div>
 
     <div class="scd reveal reveal-2">
@@ -1173,13 +1371,13 @@ pre.mono .h{ color: var(--dusk); }
   <!-- 12 — BIG DATA JUSTIFICATION -->
   <section class="slide split" data-section="bigdata">
     <div class="left">
-      <div class="eyebrow reveal">§ 09 · The big-data component</div>
+      <div class="eyebrow reveal">§ 08 · The big-data component</div>
       <h2 class="headline reveal reveal-2">Spark for <em>volume.</em><br>S3 + Parquet for <em>variety.</em></h2>
       <p class="body muted reveal reveal-3">The rubric asks for one big-data technology with justification. We bring two — both visible in the diagram, both taught in class, both load-bearing rather than decorative.</p>
       <div class="refs reveal reveal-4">
-        <div class="ref">Spark<b>Lecture 11 · DataFrame joins, in-memory DAG</b></div>
-        <div class="ref">Lakehouse<b>Lecture 07 · Slide 188 · S3 + Catalog + Spark + Athena</b></div>
-        <div class="ref">Columnar<b>Lecture 09 · Parquet</b></div>
+        <div class="ref">Spark<b>DataFrame joins, in-memory DAG execution</b></div>
+        <div class="ref">Lakehouse<b>S3 + Glue Catalog + Spark + Athena</b></div>
+        <div class="ref">Columnar<b>Parquet on the silver tier</b></div>
       </div>
     </div>
 
@@ -1188,7 +1386,7 @@ pre.mono .h{ color: var(--dusk); }
         <div class="card">
           <div class="num">V₁</div>
           <div class="h">Volume — Spark on Glue</div>
-          <p class="b">~ 2.5 M rows across crime, arrests and weather, joined on date + hour + community area + IUCR code. PySpark DataFrames do this in minutes; pandas would buckle and would not represent the data-engineering side of the syllabus.</p>
+          <p class="b">~ 2.5 M rows across crime, arrests and weather, joined on date + hour + community area + IUCR code. PySpark DataFrames do this in minutes; pandas would buckle and would miss the point of the brief's "big-data" half.</p>
         </div>
         <div class="card">
           <div class="num">V₂</div>
@@ -1198,7 +1396,7 @@ pre.mono .h{ color: var(--dusk); }
         <div class="card" style="border-style: dashed; opacity: .7;">
           <div class="num">∅</div>
           <div class="h" style="color: var(--paper-dim);">KV store · rejected</div>
-          <p class="b">"Infrequent updates + fast lookup" describes neither this dataset nor any real query in the BI layer. Adding ElastiCache to score points would be cargo-culting Lecture 10.</p>
+          <p class="b">"Infrequent updates + fast lookup" describes neither this dataset nor any real query in the BI layer. Adding ElastiCache just to score points would be cargo cult.</p>
         </div>
         <div class="card" style="border-style: dashed; opacity: .7;">
           <div class="num">∅</div>
@@ -1213,35 +1411,89 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="orch">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 10 · Orchestration</div>
+        <div class="eyebrow">§ 09 · Orchestration</div>
         <h2 class="headline">A small Glue Workflow, <em>shaped like an Airflow DAG.</em></h2>
       </div>
-      <small class="fineprint">Lecture 13 acknowledged · MWAA explicitly avoided ("not free", Slide 323)</small>
+      <small class="fineprint">EventBridge fires the workflow · MWAA priced out ("not free" base) · Airflow on EC2 kept as alternative</small>
     </div>
 
-    <pre class="mono reveal reveal-2"><span class="c">  trigger:</span>  all five Lambdas finished today's ingest
-       │
-       ▼
-<span class="h">  crawler:</span>   refresh bronze partitions in Glue Catalog
-       │
-       ▼
-<span class="k">  job:</span>       bronze → silver           <span class="c">// PySpark, parallel per source</span>
-       │
-       ▼
-<span class="h">  crawler:</span>   refresh silver tables
-       │
-       ▼
-<span class="k">  job:</span>       silver → gold (RDS)        <span class="c">// SCD merges, surrogate assign</span>
-       │
-       ▼
-<span class="c">  sensor:</span>    row-count + referential-integrity asserts
-       │
-       ▼
-<span class="c">  notify:</span>    SPICE refresh on QuickSight</pre>
+    <div class="diagram dag-diagram reveal reveal-2">
+      <svg viewBox="0 0 1500 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Glue Workflow DAG">
+        <defs>
+          <marker id="arrow-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="rgba(239,233,221,.42)"/>
+          </marker>
+        </defs>
+
+        <!-- trigger -->
+        <g>
+          <rect x="450" y="10" width="600" height="60" rx="3" class="dg-node"/>
+          <text x="470" y="33" class="dg-tag">step 01 · trigger</text>
+          <text x="470" y="56" class="dg-name-sm">all five Lambdas finished today's ingest</text>
+          <text x="1030" y="56" text-anchor="end" class="dg-meta-sm">EventBridge rule</text>
+        </g>
+        <path d="M 750 70 L 750 90" class="dg-line" marker-end="url(#arrow-d)"/>
+
+        <!-- crawler bronze -->
+        <g>
+          <rect x="450" y="92" width="600" height="60" rx="3" class="dg-node"/>
+          <text x="470" y="115" class="dg-tag">step 02 · crawler</text>
+          <text x="470" y="138" class="dg-name-sm">refresh bronze partitions in Glue Catalog</text>
+        </g>
+        <path d="M 750 152 L 750 172" class="dg-line" marker-end="url(#arrow-d)"/>
+
+        <!-- spark bronze→silver -->
+        <g>
+          <rect x="450" y="174" width="600" height="60" rx="3" class="dg-node dg-node-spark"/>
+          <text x="470" y="197" class="dg-tag dg-tag-ember">step 03 · pyspark job</text>
+          <text x="470" y="220" class="dg-name-sm dg-ember">bronze  →  silver</text>
+          <text x="1030" y="220" text-anchor="end" class="dg-meta-sm">parallel per source</text>
+        </g>
+        <path d="M 750 234 L 750 254" class="dg-line" marker-end="url(#arrow-d)"/>
+
+        <!-- crawler silver -->
+        <g>
+          <rect x="450" y="256" width="600" height="60" rx="3" class="dg-node"/>
+          <text x="470" y="279" class="dg-tag">step 04 · crawler</text>
+          <text x="470" y="302" class="dg-name-sm">refresh silver tables</text>
+        </g>
+        <path d="M 750 316 L 750 336" class="dg-line" marker-end="url(#arrow-d)"/>
+
+        <!-- spark silver→gold -->
+        <g>
+          <rect x="450" y="338" width="600" height="60" rx="3" class="dg-node dg-node-spark"/>
+          <text x="470" y="361" class="dg-tag dg-tag-ember">step 05 · pyspark job</text>
+          <text x="470" y="384" class="dg-name-sm dg-ember">silver  →  gold (RDS)</text>
+          <text x="1030" y="384" text-anchor="end" class="dg-meta-sm">SCD merges · surrogate assign</text>
+        </g>
+        <path d="M 750 398 L 750 418" class="dg-line" marker-end="url(#arrow-d)"/>
+
+        <!-- sensor -->
+        <g>
+          <rect x="450" y="420" width="600" height="60" rx="3" class="dg-node"/>
+          <text x="470" y="443" class="dg-tag">step 06 · sensor</text>
+          <text x="470" y="466" class="dg-name-sm">row-count  +  referential-integrity asserts</text>
+        </g>
+        <path d="M 750 480 L 750 500" class="dg-line" marker-end="url(#arrow-d)"/>
+
+        <!-- notify -->
+        <g>
+          <rect x="450" y="502" width="600" height="60" rx="3" class="dg-node dg-node-bi"/>
+          <text x="470" y="525" class="dg-tag dg-tag-dusk">step 07 · notify</text>
+          <text x="470" y="548" class="dg-name-sm dg-dusk">SPICE refresh on QuickSight</text>
+        </g>
+
+        <!-- Glue Workflow bracket on the right covering steps 02-06 -->
+        <g>
+          <path d="M 1080 92 L 1100 92 L 1100 480 L 1080 480" class="dg-line dg-line-soft"/>
+          <text x="1118" y="290" text-anchor="middle" transform="rotate(90 1118 290)" class="dg-bracket-label">single Glue Workflow</text>
+        </g>
+      </svg>
+    </div>
 
     <div class="row-gap reveal reveal-3" style="margin-top: 24px;">
       <span class="tag ember"><span class="pip"></span>Picked: EventBridge → Glue Workflow</span>
-      <span class="tag"><span class="pip"></span>Alt 1: Airflow on EC2 — kept for the lecture's sake</span>
+      <span class="tag"><span class="pip"></span>Alt 1: Airflow on EC2 — viable, more ops</span>
       <span class="tag"><span class="pip"></span>Alt 2: MWAA — rejected on cost ($350/mo base)</span>
     </div>
   </section>
@@ -1250,7 +1502,7 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="bi">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 11 · The BI surface</div>
+        <div class="eyebrow">§ 10 · The BI surface</div>
         <h2 class="headline">Two dashboards, <em>two audiences.</em></h2>
       </div>
       <small class="fineprint">Built on QuickSight · SPICE-backed · refreshed an hour after the gold-layer job</small>
@@ -1286,7 +1538,7 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="status">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 12 · Where we stand</div>
+        <div class="eyebrow">§ 11 · Where we stand</div>
         <h2 class="headline">Built · in flight · <em>queued.</em></h2>
       </div>
       <small class="fineprint">Snapshot · 2026-05-10 · Branch <code style="font-family:var(--mono);">main</code></small>
@@ -1321,21 +1573,21 @@ pre.mono .h{ color: var(--dusk); }
   <!-- 16 — CLOSING ARGUMENT / RUBRIC -->
   <section class="slide split" data-section="rubric">
     <div class="left">
-      <div class="eyebrow reveal">§ 13 · The closing argument</div>
+      <div class="eyebrow reveal">§ 12 · The closing argument</div>
       <h2 class="headline reveal reveal-2">Every rubric line, <em>covered.</em></h2>
-      <p class="body muted reveal reveal-3">The architecture and the schema were built to answer the rubric line-by-line — without inflating either. What we kept is justified by a lecture; what we cut is justified by scale.</p>
+      <p class="body muted reveal reveal-3">The architecture and the schema were built to answer the rubric line-by-line — without inflating either. What we kept is justified by a need the data has; what we cut is justified by scale.</p>
     </div>
     <div class="right">
-      <div class="ledger reveal reveal-3" style="grid-template-columns: 28px 1.6fr 60px 1.4fr;">
+      <div class="ledger reveal reveal-3" style="grid-template-columns: 28px 1.6fr 36px 1.4fr;">
         <div class="row head">
-          <div class="cell">#</div><div class="cell">Rubric item</div><div class="cell">Wt.</div><div class="cell">Where</div>
+          <div class="cell">#</div><div class="cell">Rubric item</div><div class="cell">·</div><div class="cell">Where</div>
         </div>
-        <div class="row"><div class="cell num">01</div><div class="cell role">Data sources</div><div class="cell rows" style="font-size:18px;">2 %</div><div class="cell role muted">Five sources · CSV + JSON · §02</div></div>
-        <div class="row"><div class="cell num">02</div><div class="cell role">DW + ETL · 4-step · ≥ 1 fact · bus matrix · all dims SCD</div><div class="cell rows" style="font-size:18px;">4 %</div><div class="cell role muted">§06–§08 + dimensional-design.md</div></div>
-        <div class="row"><div class="cell num">03</div><div class="cell role">Big-Data component with justification</div><div class="cell rows" style="font-size:18px;">4 %</div><div class="cell role muted">Spark + S3 lake · §09</div></div>
-        <div class="row"><div class="cell num">04</div><div class="cell role">Automatic workflow</div><div class="cell rows" style="font-size:18px;">1 %</div><div class="cell role muted">Glue Workflow DAG · §10</div></div>
-        <div class="row"><div class="cell num">05</div><div class="cell role">BI · ≥ 2 dashboards on QuickSight</div><div class="cell rows" style="font-size:18px;">4 %</div><div class="cell role muted">Overview + Detail · §11</div></div>
-        <div class="row"><div class="cell num">06</div><div class="cell role">Two presentation videos</div><div class="cell rows" style="font-size:18px;">5 %</div><div class="cell role muted">DE-side + BA-side recordings</div></div>
+        <div class="row"><div class="cell num">01</div><div class="cell role">Data sources</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">Five sources · CSV + JSON · §01</div></div>
+        <div class="row"><div class="cell num">02</div><div class="cell role">DW + ETL · 4-step · ≥ 1 fact · bus matrix · all dims SCD</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">§05–§07 + dimensional-design.md</div></div>
+        <div class="row"><div class="cell num">03</div><div class="cell role">Big-Data component with justification</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">Spark + S3 lake · §08</div></div>
+        <div class="row"><div class="cell num">04</div><div class="cell role">Automatic workflow</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">Glue Workflow DAG · §09</div></div>
+        <div class="row"><div class="cell num">05</div><div class="cell role">BI · ≥ 2 dashboards on QuickSight</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">Overview + Detail · §10</div></div>
+        <div class="row"><div class="cell num">06</div><div class="cell role">Two presentation videos</div><div class="cell rows" style="font-size:16px; color: var(--ember);">✓</div><div class="cell role muted">DE-side + BA-side recordings</div></div>
       </div>
     </div>
   </section>

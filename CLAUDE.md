@@ -253,6 +253,25 @@ Daily scheduler behavior:
 - The 8-day lookback is a conservative buffer for the source's stated
   seven-day exclusion window.
 
+## Frontend / HTML Verification
+
+When editing the slide deck (`docs/presentation.html`) or any other HTML asset
+in this repository, do not consider the change "done" until it has been
+visually verified in a browser:
+
+1. Use Playwright (the `document-skills:webapp-testing` skill ships a working
+   `sync_playwright` setup) to render the page at both `1920x1080` and
+   `1440x900`.
+2. Capture a screenshot of every slide / view that the change could touch and
+   look at each one. Do not rely on DOM dumps alone.
+3. Probe the layout with `getBoundingClientRect()` if anything looks wrong —
+   text overlap, content out of viewport, unintended scrolling — and fix the
+   root cause before re-capturing.
+4. Iterate (edit → capture → look → fix) until every screenshot is correct.
+   Surface visible bugs explicitly in the response so the user can confirm.
+
+Don't ship HTML changes by inference; always close the loop with Playwright.
+
 ## Implementation Guidance
 
 - Preserve raw downloads before transformation.
