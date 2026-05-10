@@ -253,36 +253,76 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 
 /* === SLIDE LAYOUTS === */
 
-/* cover */
+/* cover — editorial restraint */
 .slide.cover{
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 32px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  position: relative;
+}
+.cover .cover-mark{
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .32em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  display: inline-flex; align-items: center; gap: 14px;
+  position: relative; z-index: 2;
+}
+.cover .cover-mark::before{
+  content:"";
+  width: 36px; height: 1px;
+  background: var(--ember);
 }
 .cover .titleblock{
-  max-width: 44ch;
+  align-self: center;
   position: relative;
   z-index: 2;
 }
-.cover .titleblock .eyebrow{ margin-bottom: 22px; }
-.cover .titleblock h1{ margin-bottom: 28px; }
-.cover .meta{
-  display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 28px;
+.cover .titleblock h1{ margin: 0; max-width: 18ch; }
+.cover .titleblock .lede{
+  margin-top: 32px;
+  max-width: 36ch;
+}
+.cover .cover-foot{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
   border-top: 1px solid var(--paper-faint);
-  padding-top: 22px; margin-top: 36px;
-  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--paper-dim);
-  position: relative;
-  z-index: 2;
+  padding-top: 18px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  position: relative; z-index: 2;
 }
-.cover .meta b{ display:block; color: var(--paper); font-family: var(--sans); font-weight: 500; font-size: 14px; letter-spacing: 0; text-transform: none; margin-top: 4px; }
+.cover .cover-foot .topic{
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 16px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--paper);
+}
 .cover .ghost{
   position: absolute;
   font-family: var(--display); font-style: italic;
-  font-size: clamp(120px, 28vw, 420px);
+  font-size: clamp(180px, 36vw, 540px);
   line-height: .8; letter-spacing: -.04em;
-  color: rgba(239,233,221,.04);
-  bottom: 18%; right: -.04em;
+  color: rgba(239,233,221,.045);
+  bottom: 4%; right: -.06em;
+  pointer-events: none; user-select: none;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  z-index: 1;
+}
+.cover .ghost-2{
+  position: absolute;
+  font-family: var(--display); font-style: italic; font-weight: 380;
+  font-size: clamp(140px, 22vw, 320px);
+  line-height: .8; letter-spacing: -.04em;
+  color: rgba(227,107,45,.06);
+  top: 2%; right: 6%;
   pointer-events: none; user-select: none;
   font-variation-settings: "opsz" 144, "SOFT" 100;
   z-index: 1;
@@ -391,11 +431,11 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 .ledger .role{ color: var(--paper); }
 .ledger .row.implemented .cell{ background: linear-gradient(90deg, rgba(227,107,45,.06), transparent 60%); }
 
-/* 4-step dimensional design — Kimball process */
+/* 4-step dimensional design — Kimball process · 2x2 expanded */
 .steps-slide{
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 .steps-slide > .header{
   flex: 0 0 auto;
@@ -413,18 +453,19 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   border-bottom: var(--rule);
 }
 .step-col{
-  padding: 18px 24px 20px;
+  padding: 16px 22px 18px;
   border-right: var(--rule);
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
   position: relative;
   background: rgba(239,233,221,.012);
+  min-height: 0;
+  overflow: hidden;
 }
 .step-col:last-child{ border-right: 0; }
 .step-col::after{
   content: "";
   position: absolute;
-  top: 50px;
+  top: 56px;
   right: -9px;
   width: 16px; height: 16px;
   background: var(--ink);
@@ -435,11 +476,15 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 }
 .step-col:last-child::after{ display: none; }
 
+.step-head{
+  display: flex; flex-direction: column; gap: 4px;
+  margin-bottom: 14px;
+}
 .step-num{
   font-family: var(--display);
   font-style: italic;
   font-weight: 380;
-  font-size: clamp(54px, 5.6vw, 92px);
+  font-size: clamp(56px, 5.2vw, 92px);
   line-height: .9;
   letter-spacing: -.04em;
   color: var(--ember-soft);
@@ -448,41 +493,49 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 }
 .step-name{
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 12.5px;
   letter-spacing: .26em;
   text-transform: uppercase;
   color: var(--ember);
-  margin: 6px 0 16px 0;
-  display: flex; align-items: center; gap: 10px;
+  margin-top: 6px;
+  display: flex; align-items: center; gap: 12px;
 }
-.step-name::before{ content:""; width: 22px; height:1px; background: var(--ember); }
+.step-name::before{ content:""; width: 24px; height: 1px; background: var(--ember); }
+.step-asks{
+  font-family: var(--display); font-style: italic;
+  font-weight: 380;
+  font-size: 14.5px;
+  color: var(--paper);
+  margin-top: 4px;
+  font-variation-settings: "opsz" 36, "SOFT" 80;
+}
 
 .step-quote{
   font-family: var(--display);
   font-style: italic;
   font-weight: 380;
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.45;
   color: var(--paper);
-  margin: 0 0 14px 0;
+  margin: 0 0 12px 0;
   padding-left: 14px;
-  border-left: 2px solid rgba(227,107,45,.55);
+  border-left: 2px solid var(--ember);
   font-variation-settings: "opsz" 36, "SOFT" 80;
   position: relative;
 }
 .step-quote::before{
   content: "\201C";
-  position: absolute; left: 4px; top: -8px;
+  position: absolute; left: 6px; top: -10px;
   font-family: var(--display); font-style: italic;
-  font-size: 30px; color: var(--ember);
+  font-size: 36px; color: var(--ember);
   line-height: 1;
 }
 .step-quote-src{
   display: block;
   font-family: var(--mono);
   font-style: normal;
-  font-size: 9.5px;
-  letter-spacing: .18em;
+  font-size: 10.5px;
+  letter-spacing: .2em;
   text-transform: uppercase;
   color: var(--paper-dim);
   margin-top: 8px;
@@ -490,27 +543,25 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 
 .step-our{
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid var(--paper-faint);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 .step-our-tag{
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: .26em;
   text-transform: uppercase;
   color: var(--ember-soft);
 }
 .step-our-list{
   list-style: none; padding: 0; margin: 0;
-  display: flex; flex-direction: column; gap: 6px;
+  display: flex; flex-direction: column; gap: 5px;
 }
 .step-our-list li{
   display: flex; flex-direction: column; gap: 1px;
-  font-size: 12.5px;
-  line-height: 1.4;
 }
 .step-our-list li b{
   font-family: var(--mono);
@@ -524,13 +575,27 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   font-style: italic;
   font-size: 11.5px;
   color: var(--paper-dim);
+  line-height: 1.35;
 }
+
+.step-techniques{
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 4px;
+}
+.step-techniques .tk{
+  font-family: var(--mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--paper-dim);
+  border: 1px solid var(--paper-hair);
+  padding: 4px 9px; border-radius: 999px;
+  background: rgba(0,0,0,.2);
+}
+.step-techniques .tk.em{ color: var(--ember); border-color: rgba(227,107,45,.4); }
 
 .steps-bookend{
   display: flex; align-items: center; justify-content: center; gap: 14px;
   font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em;
   text-transform: uppercase; color: var(--paper-dim);
-  padding: 4px 0 0;
+  padding: 2px 0 0;
 }
 .steps-bookend .b{
   border: 1px solid var(--paper-hair);
@@ -642,9 +707,9 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   flex: 0 0 auto;
 }
 .bus-matrix .h{
-  padding: 12px 8px;
+  padding: 16px 10px;
   border-right: 1px solid var(--paper-hair);
-  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em;
   color: var(--paper-dim);
   text-align: center;
   display: flex; align-items: center; justify-content: center;
@@ -659,19 +724,19 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   text-align: left;
   padding-left: 0;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: .22em;
   text-transform: uppercase;
   color: var(--paper-dim);
 }
 .bus-matrix .cell{
-  padding: 12px 8px;
+  padding: 18px 10px;
   border-right: 1px solid var(--paper-hair);
   border-top: 1px solid var(--paper-hair);
   text-align: center;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--mono);
-  font-size: 18px;
+  font-size: 22px;
   position: relative;
 }
 .bus-matrix .cell:last-of-type, .bus-matrix .cell:nth-child(9n){ border-right: 0; }
@@ -683,23 +748,23 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   background: rgba(227,107,45,.05);
   pointer-events: none;
 }
-.bus-matrix .cell.dot{ color: var(--paper-faint); font-size: 16px; }
+.bus-matrix .cell.dot{ color: var(--paper-faint); font-size: 20px; }
 .bus-matrix .cell.label{
   text-align: left;
   justify-content: flex-start;
   padding-left: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
+  gap: 4px;
 }
 .bus-matrix .cell.label .nm{
-  font-family: var(--mono); font-size: 14px; letter-spacing: .02em;
+  font-family: var(--mono); font-size: 17px; letter-spacing: .02em;
   color: var(--paper);
 }
 .bus-matrix .cell.label.l-crime .nm{ color: var(--ember-soft); }
 .bus-matrix .cell.label.l-arrest .nm{ color: var(--dusk); }
 .bus-matrix .cell.label .gr{
-  font-family: var(--display); font-style: italic; font-size: 11px;
+  font-family: var(--display); font-style: italic; font-size: 13px;
   color: var(--paper-dim); line-height: 1.35;
 }
 
@@ -726,11 +791,11 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   background: linear-gradient(180deg, transparent, var(--paper-faint));
 }
 .bus-col-tag{
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: .26em;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .26em;
   text-transform: uppercase; color: var(--paper-dim);
   display: inline-flex; align-items: center; gap: 10px;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--paper-hair);
 }
 .bus-col-tag::before{ content:""; width: 22px; height:1px; background: currentColor; }
@@ -750,25 +815,24 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
   display: flex; flex-direction: column; gap: 0;
 }
 .bus-col li{
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--paper-hair);
-  display: flex; flex-direction: column; gap: 3px;
+  display: flex; flex-direction: column; gap: 4px;
 }
 .bus-col li:last-child{ border-bottom: 0; }
 .bus-col li b{
-  font-family: var(--mono); font-weight: 400; font-size: 13.5px;
+  font-family: var(--mono); font-weight: 400; font-size: 15.5px;
   color: var(--paper); letter-spacing: .02em;
 }
 .bus-col li span{
-  font-family: var(--display); font-style: italic; font-size: 12.5px;
+  font-family: var(--display); font-style: italic; font-size: 14px;
   color: var(--paper-dim); line-height: 1.4;
 }
 .bus-col-shared li b{ color: var(--ember-soft); }
 
 .bus-col-foot{
-  margin-top: auto;
-  padding-top: 12px;
-  font-family: var(--mono); font-size: 10px; letter-spacing: .26em;
+  padding-top: 14px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .26em;
   text-transform: uppercase; color: var(--ember);
   text-align: center;
   border-top: 1px dashed rgba(227,107,45,.35);
@@ -777,8 +841,8 @@ small.fineprint{ font-family: var(--mono); font-size: 11px; letter-spacing: .12e
 
 .bus-note{
   margin-top: 4px;
-  font-size: 13.5px; color: var(--paper-dim); line-height: 1.55;
-  max-width: 100ch;
+  font-size: 15px; color: var(--paper-dim); line-height: 1.55;
+  max-width: 110ch;
 }
 .bus-note b{ color: var(--paper); font-weight: 500; }
 
@@ -1414,17 +1478,16 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide cover" data-section="cover">
     <div class="ghost reveal reveal-5">crime,</div>
 
+    <div class="cover-mark reveal">Final Project</div>
+
     <div class="titleblock">
-      <div class="eyebrow reveal">Final Project · 2025/2 · A study in dimensional modelling</div>
       <h1 class="display reveal reveal-2">Crime,<br><em>Conformed.</em></h1>
-      <p class="lede reveal reveal-3">A traditional data warehouse and a modern data lake, taught to coexist over seven years of Chicago police records.</p>
+      <p class="lede reveal reveal-3">A data warehouse, built from seven years of Chicago police records.</p>
     </div>
 
-    <div class="meta reveal reveal-4">
-      <div>Course<b>2190436 · 2190518</b></div>
-      <div>Institution<b>Chulalongkorn University</b></div>
-      <div>Window<b>2018 — 2024</b></div>
-      <div>Stack<b>AWS · Spark · PostgreSQL · QuickSight</b></div>
+    <div class="cover-foot reveal reveal-4">
+      <span class="topic">A study in dimensional modelling.</span>
+      <span>Data Warehousing &amp; Big-Data Engineering</span>
     </div>
   </section>
 
@@ -1491,19 +1554,430 @@ pre.mono .h{ color: var(--dusk); }
     </div>
   </section>
 
-  <!-- 04 — DIVIDER · ARCHITECTURE -->
-  <section class="slide divider" data-section="arch">
+
+  <!-- 03 — DIVIDER · WAREHOUSE -->
+  <section class="slide divider" data-section="dw">
     <div class="num reveal">01</div>
     <div class="eyebrow reveal reveal-2">Section one</div>
-    <h1 class="display reveal reveal-3"><em>Architecture</em><br>at rest.</h1>
-    <p class="lede reveal reveal-4" style="margin-top: 22px;">A medallion lakehouse on the lake side; a Kimball star on the warehouse side. Glue is the bridge.</p>
+    <h1 class="display reveal reveal-3">The <em>warehouse</em>,<br>by the book.</h1>
+    <p class="lede reveal reveal-4" style="margin-top: 22px;">Kimball's four-step process, applied step-by-step — grain, dimensions, facts, then everything else.</p>
+  </section>
+
+  <!-- 09 — 4-STEP DIMENSIONAL DESIGN -->
+  <section class="slide steps-slide" data-section="fourstep">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 01 · 4-step dimensional design</div>
+        <h2 class="headline">Kimball's process, <em>step by step.</em></h2>
+      </div>
+      <small class="fineprint">Each step asks one question — and the project answers it before moving on to the next.</small>
+    </div>
+
+    <div class="steps-grid reveal reveal-2">
+
+      <!-- STEP 01 — BUSINESS PROCESS -->
+      <div class="step-col">
+        <div class="step-head">
+          <div class="step-num">01</div>
+          <div class="step-name">business process</div>
+          <div class="step-asks">What activity are we measuring?</div>
+        </div>
+        <p class="step-quote">A business process is a low-level activity performed by the organisation — not a department or function.<span class="step-quote-src">Kimball · Lecture 02 · slide 7</span></p>
+        <div class="step-our">
+          <span class="step-our-tag">How we answered it</span>
+          <ul class="step-our-list">
+            <li><b>Reporting a crime incident</b><span>primary process · ≈ 1.5 M rows from CPD's CLEAR system</span></li>
+            <li><b>Arresting / charging a person</b><span>second process · enables a non-trivial bus matrix</span></li>
+            <li><b>Snapshots are not processes</b><span>socio-economics &amp; weather feed dimensions, not facts</span></li>
+          </ul>
+          <div class="step-techniques">
+            <span class="tk em">two business processes</span>
+            <span class="tk">one fact per process</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 02 — GRAIN -->
+      <div class="step-col">
+        <div class="step-head">
+          <div class="step-num">02</div>
+          <div class="step-name">grain</div>
+          <div class="step-asks">What does one fact row mean?</div>
+        </div>
+        <p class="step-quote">Atomic grain refers to the lowest level that data is captured in the business process — preferably the most atomic level possible.<span class="step-quote-src">Kimball · Lecture 02 · slide 9</span></p>
+        <div class="step-our">
+          <span class="step-our-tag">How we answered it</span>
+          <ul class="step-our-list">
+            <li><b>fact_crime</b><span>one row per reported crime incident · natural key = Chicago <code style="font-family:var(--mono);font-size:12px;color:var(--paper);">id</code></span></li>
+            <li><b>fact_arrest</b><span>one row per arrest event · natural key = <code style="font-family:var(--mono);font-size:12px;color:var(--paper);">cb_no</code></span></li>
+            <li><b>Type — transaction fact</b><span>insert-only; corrections upsert by id, raw S3 zone preserves audit</span></li>
+            <li><b>No aggregate fact</b><span>roll-ups are computed from the atomic grain at query time</span></li>
+          </ul>
+          <div class="step-techniques">
+            <span class="tk em">transaction fact</span>
+            <span class="tk em">atomic grain</span>
+            <span class="tk">idempotent upsert</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 03 — DIMENSIONS -->
+      <div class="step-col">
+        <div class="step-head">
+          <div class="step-num">03</div>
+          <div class="step-name">dimensions</div>
+          <div class="step-asks">What surrounds the event?</div>
+        </div>
+        <p class="step-quote">Who, what, when, why, where, and how associated with the event? Add a dimension only if it takes one value per primary-dim combination.<span class="step-quote-src">Kimball · Lecture 02 · slide 11</span></p>
+        <div class="step-our">
+          <span class="step-our-tag">How we answered it · 6 dims + degenerate</span>
+          <ul class="step-our-list">
+            <li><b>dim_date · dim_time_of_day</b><span><em>when</em> · role-played twice · separate keeps row count tiny</span></li>
+            <li><b>dim_location</b><span><em>where</em> · community · district · ward · beat · SCD2 socio</span></li>
+            <li><b>dim_crime_type</b><span><em>what</em> · IUCR · primary type · FBI code · index/non-index</span></li>
+            <li><b>dim_weather · dim_crime_flags</b><span><em>under what</em> · <em>how</em> · junk dim of arrest + domestic</span></li>
+            <li><b>case_number</b><span>degenerate dim — kept on fact, no separate table</span></li>
+          </ul>
+          <div class="step-techniques">
+            <span class="tk em">role-playing</span>
+            <span class="tk em">junk dim</span>
+            <span class="tk em">degenerate dim</span>
+            <span class="tk">separate date / time</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 04 — FACTS -->
+      <div class="step-col">
+        <div class="step-head">
+          <div class="step-num">04</div>
+          <div class="step-name">facts</div>
+          <div class="step-asks">What measures are true to the grain?</div>
+        </div>
+        <p class="step-quote">Facts must be true to the grain. Percentages and ratios are non-additive — store numerator and denominator instead.<span class="step-quote-src">Kimball · Lecture 02 · slide 13</span></p>
+        <div class="step-our">
+          <span class="step-our-tag">How we answered it · measures on fact_crime</span>
+          <ul class="step-our-list">
+            <li><b>incident_count = 1</b><span>additive · trivial SUM roll-ups, no COUNT(*) outer-join surprises</span></li>
+            <li><b>is_arrest · is_domestic</b><span>semi-additive · SMALLINT 0/1 — SUM gives a count</span></li>
+            <li><b>temp_c · precip_mm · hours_to_update</b><span>additive numeric measures</span></li>
+            <li><b>lat · lng</b><span>non-additive · viz only, never SUM-ed</span></li>
+            <li><b>No stored ratios</b><span>arrest_rate computed at query time from num / denom</span></li>
+          </ul>
+          <div class="step-techniques">
+            <span class="tk em">additive</span>
+            <span class="tk em">semi-additive</span>
+            <span class="tk em">non-additive</span>
+            <span class="tk">no stored ratios</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="steps-bookend reveal reveal-3">
+      <span class="b">step 0 · <em>gather requirements</em> · 6 acceptance questions</span>
+      <span class="arrow">→</span>
+      <span class="b">step 5 · <em>finish details</em> · surrogate keys, smart keys, unknown rows</span>
+    </div>
+  </section>
+
+  <!-- 10 — STAR SCHEMA VISUAL -->
+  <section class="slide split" data-section="star">
+    <div class="left">
+      <div class="eyebrow reveal">§ 02 · Star schema</div>
+      <h2 class="headline reveal reveal-2">One fact at the centre. <em>Six dimensions</em> around it.</h2>
+      <p class="body muted reveal reveal-3">The grain is one row per reported incident, identified by Chicago's stable <code style="font-family:var(--mono);">id</code>. Two role-playing date FKs (occurrence + report) reach back to <code style="font-family:var(--mono);">dim_date</code>. Hourly weather and an SCD2-tracked location dimension hang off the same fact.</p>
+      <div class="refs reveal reveal-4">
+        <div class="ref">Grain<b>One reported crime incident</b></div>
+        <div class="ref">Type<b>Transaction fact, atomic grain</b></div>
+        <div class="ref">Surrogates<b>BIGINT IDENTITY · YYYYMMDD smart key</b></div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="diagram star reveal reveal-3">
+        <svg viewBox="0 0 920 720" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Star schema diagram">
+          <!-- Connecting lines (drawn first so boxes overlap them cleanly) -->
+          <g class="dg-line dg-line-soft" fill="none">
+            <!-- top three dims → fact -->
+            <path d="M 150 130 L 380 250"/>
+            <path d="M 460 130 L 460 250"/>
+            <path d="M 770 130 L 540 250"/>
+            <!-- bottom three dims → fact -->
+            <path d="M 150 540 L 380 470"/>
+            <path d="M 460 540 L 460 470"/>
+            <path d="M 770 540 L 540 470"/>
+          </g>
+
+          <!-- top row -->
+          <g>
+            <rect x="30"  y="40"  width="240" height="90" rx="3" class="dg-node"/>
+            <text x="42" y="62"  class="dg-tag">scd 0</text>
+            <text x="42" y="86"  class="dg-name-sm">dim_date</text>
+            <text x="42" y="106" class="dg-meta-sm">date_key · full_date · dow</text>
+            <text x="42" y="120" class="dg-meta-sm">is_weekend · month · year</text>
+
+            <rect x="340" y="40"  width="240" height="90" rx="3" class="dg-node"/>
+            <text x="352" y="62"  class="dg-tag">scd 0</text>
+            <text x="352" y="86"  class="dg-name-sm">dim_time_of_day</text>
+            <text x="352" y="106" class="dg-meta-sm">time_key (0–23) · hour_24</text>
+            <text x="352" y="120" class="dg-meta-sm">am_pm · period_of_day</text>
+
+            <rect x="650" y="40"  width="240" height="90" rx="3" class="dg-node"/>
+            <text x="662" y="62"  class="dg-tag">scd 2 + 1 (hybrid)</text>
+            <text x="662" y="86"  class="dg-name-sm">dim_location</text>
+            <text x="662" y="106" class="dg-meta-sm">community_area · district</text>
+            <text x="662" y="120" class="dg-meta-sm">ward · beat · scd_*</text>
+          </g>
+
+          <!-- centre fact -->
+          <g>
+            <rect x="270" y="250" width="380" height="220" rx="3" class="dg-node dg-node-spark"/>
+            <text x="285" y="276" class="dg-tag dg-tag-ember">transaction fact · atomic grain</text>
+            <text x="285" y="312" class="dg-name dg-ember" style="font-size: 30px;">fact_crime</text>
+            <line x1="285" x2="635" y1="328" y2="328" stroke="rgba(227,107,45,.35)" stroke-width="1"/>
+            <text x="285" y="350" class="dg-meta">crime_id (NK)  ·  case_number (DD)</text>
+            <text x="285" y="368" class="dg-meta">occurrence_date_key  ·  report_date_key</text>
+            <text x="285" y="386" class="dg-meta">location_key  ·  crime_type_key</text>
+            <text x="285" y="404" class="dg-meta">weather_key  ·  flags_key</text>
+            <line x1="285" x2="635" y1="416" y2="416" stroke="rgba(227,107,45,.18)" stroke-width="1" stroke-dasharray="2 3"/>
+            <text x="285" y="436" class="dg-meta-sm" style="fill: var(--paper);">incident_count · is_arrest · is_domestic</text>
+            <text x="285" y="454" class="dg-meta-sm" style="fill: var(--paper);">temp_c · precip_mm · lat · lng</text>
+          </g>
+
+          <!-- bottom row -->
+          <g>
+            <rect x="30"  y="540" width="240" height="92" rx="3" class="dg-node"/>
+            <text x="42" y="562"  class="dg-tag">scd 0</text>
+            <text x="42" y="586"  class="dg-name-sm">dim_weather</text>
+            <text x="42" y="606"  class="dg-meta-sm">weather_category · temp_band</text>
+            <text x="42" y="620"  class="dg-meta-sm">precip_band · obs_hour</text>
+
+            <rect x="340" y="540" width="240" height="92" rx="3" class="dg-node"/>
+            <text x="352" y="562" class="dg-tag">scd 1 · junk</text>
+            <text x="352" y="586" class="dg-name-sm">dim_crime_flags</text>
+            <text x="352" y="606" class="dg-meta-sm">flags_key · is_arrest</text>
+            <text x="352" y="620" class="dg-meta-sm">is_domestic · label</text>
+
+            <rect x="650" y="540" width="240" height="92" rx="3" class="dg-node"/>
+            <text x="662" y="562" class="dg-tag">scd 2</text>
+            <text x="662" y="586" class="dg-name-sm">dim_crime_type</text>
+            <text x="662" y="606" class="dg-meta-sm">iucr (NK) · primary_type</text>
+            <text x="662" y="620" class="dg-meta-sm">fbi_code · index_code · scd_*</text>
+          </g>
+
+          <!-- footer note -->
+          <text x="460" y="680" text-anchor="middle" class="dg-meta-sm" style="fill: var(--paper-dim);">Second business process · fact_arrest with dim_arrestee + bridge_arrest_charge (multi-valued, 1–4 charges)</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 — BUS MATRIX -->
+  <section class="slide bus-slide" data-section="bus">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 03 · Bus matrix</div>
+        <h2 class="headline">Two business processes, <em>one set of dimensions.</em></h2>
+      </div>
+      <small class="fineprint">Conformed dimensions are the spine that makes drill-across work between the two facts.</small>
+    </div>
+
+    <!-- Canonical Kimball bus matrix · rows = business processes, cols = dimensions -->
+    <div class="bus-matrix reveal reveal-2">
+      <div class="h h-row">process \ dimension</div>
+      <div class="h h-conform">dim_date</div>
+      <div class="h h-conform">dim_time_of_day</div>
+      <div class="h">dim_location</div>
+      <div class="h h-conform">dim_crime_type</div>
+      <div class="h">dim_weather</div>
+      <div class="h">dim_crime_flags</div>
+      <div class="h">dim_arrestee</div>
+      <div class="h">charge bridge</div>
+
+      <div class="cell label l-crime"><span class="nm">fact_crime</span><span class="gr">one reported incident</span></div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell tick">●</div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell tick">●</div>
+      <div class="cell tick">●</div>
+      <div class="cell dot">·</div>
+      <div class="cell dot">·</div>
+
+      <div class="cell label l-arrest"><span class="nm">fact_arrest</span><span class="gr">one arrest event</span></div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell dot">·</div>
+      <div class="cell tick tick-conform">●</div>
+      <div class="cell dot">·</div>
+      <div class="cell dot">·</div>
+      <div class="cell tick">●</div>
+      <div class="cell tick">●</div>
+    </div>
+
+    <div class="bus-grid reveal reveal-3">
+
+      <!-- CRIME-ONLY DIMS -->
+      <div class="bus-col bus-col-crime">
+        <div class="bus-col-tag">crime only</div>
+        <ul>
+          <li><b>dim_location</b><span>community area · district · ward · beat</span></li>
+          <li><b>dim_weather</b><span>hourly observation, joined by date+hour</span></li>
+          <li><b>dim_crime_flags</b><span>arrest + domestic junk dim</span></li>
+        </ul>
+      </div>
+
+      <!-- CONFORMED DIMS (shared spine) -->
+      <div class="bus-col bus-col-shared">
+        <div class="bus-col-tag">conformed · shared</div>
+        <ul>
+          <li><b>dim_date</b><span>YYYYMMDD smart key, role-played twice</span></li>
+          <li><b>dim_time_of_day</b><span>0–23 hour, period-of-day labels</span></li>
+          <li><b>dim_crime_type</b><span>IUCR · FBI code · index/non-index</span></li>
+        </ul>
+        <div class="bus-col-foot">drill-across spine</div>
+      </div>
+
+      <!-- ARREST-ONLY DIMS -->
+      <div class="bus-col bus-col-arrest">
+        <div class="bus-col-tag">arrest only</div>
+        <ul>
+          <li><b>dim_arrestee</b><span>age · sex · race demographics</span></li>
+          <li><b>bridge_arrest_charge</b><span>multi-valued, 1–4 charges per event</span></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <p class="bus-note reveal reveal-4">
+      One <code style="font-family:var(--mono); font-size: 13px; color: var(--paper);">dim_crime_type</code> serves both the primary type on a crime row and the IUCR-coded charges on the arrest bridge — <b>one definition of "what kind of crime", reused.</b> The two facts never join to each other, only through the conformed spine.
+    </p>
+  </section>
+
+  <!-- 11 — SCD STRATEGY -->
+  <section class="slide full" data-section="scd">
+    <div class="header reveal">
+      <div>
+        <div class="eyebrow">§ 04 · Slowly changing dimensions</div>
+        <h2 class="headline">Every dimension implements an SCD. <em>Type chosen by intent.</em></h2>
+      </div>
+      <small class="fineprint">The rubric requires every dimension to implement an SCD — pick the right type per intent.</small>
+    </div>
+
+    <div class="scd-grid reveal reveal-2">
+
+      <!-- TYPE 0 · retain -->
+      <div class="scd-col">
+        <div class="scd-num">0</div>
+        <div class="scd-type">retain</div>
+        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 0 — set once, never changes">
+          <rect class="scd-bar-static" x="6" y="22" width="228" height="20"/>
+          <text class="scd-bar-text" x="120" y="35" text-anchor="middle">never changes</text>
+          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
+          <text class="scd-tick" x="6" y="70">t₀</text>
+          <text class="scd-tick" x="234" y="70" text-anchor="end">→</text>
+        </svg>
+        <p class="scd-caption">Set once at load time. Calendar, time-of-day, hourly weather — these don't have a "change" story.</p>
+        <ul class="scd-dims">
+          <li><b>dim_date</b><span>calendar attributes are static</span></li>
+          <li><b>dim_time_of_day</b><span>24 fixed rows by design</span></li>
+          <li><b>dim_weather</b><span>immutable hourly observations</span></li>
+        </ul>
+      </div>
+
+      <!-- TYPE 1 · overwrite -->
+      <div class="scd-col">
+        <div class="scd-num">1</div>
+        <div class="scd-type">overwrite</div>
+        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 1 — old replaced by new">
+          <rect class="scd-bar-old" x="6" y="10" width="228" height="14"/>
+          <line class="scd-strike" x1="14" y1="17" x2="226" y2="17"/>
+          <path class="scd-arrow" d="M 30 26 L 30 36" marker-end="url(#scd-arr)"/>
+          <rect class="scd-bar-new" x="6" y="38" width="228" height="14"/>
+          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
+          <text class="scd-tick" x="6" y="70">prior</text>
+          <text class="scd-tick scd-tick-em" x="234" y="70" text-anchor="end">latest only</text>
+          <defs>
+            <marker id="scd-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ember)"/>
+            </marker>
+          </defs>
+        </svg>
+        <p class="scd-caption">Replace in place when the source changes. No history kept — the past is gone.</p>
+        <ul class="scd-dims">
+          <li><b>dim_crime_flags</b><span>junk dim, history not needed</span></li>
+          <li><b>dim_arrestee</b><span>not "owned" across time</span></li>
+        </ul>
+      </div>
+
+      <!-- TYPE 2 · add row -->
+      <div class="scd-col">
+        <div class="scd-num">2</div>
+        <div class="scd-type">add row</div>
+        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 2 — new row per version">
+          <rect class="scd-bar-v"  x="6"   y="6"  width="76"  height="11"/>
+          <rect class="scd-bar-v"  x="68"  y="22" width="100" height="11"/>
+          <rect class="scd-bar-new" x="148" y="38" width="86"  height="11"/>
+          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
+          <text class="scd-tick" x="6"   y="70">v₁</text>
+          <text class="scd-tick" x="92"  y="70">v₂</text>
+          <text class="scd-tick scd-tick-em" x="234" y="70" text-anchor="end">v₃ · current</text>
+        </svg>
+        <p class="scd-caption">Add a new row, end-date the old. Historical facts join the version that was active when the event happened.</p>
+        <ul class="scd-dims">
+          <li><b>dim_crime_type</b><span>IUCR codes evolve · keep prior reports correct</span></li>
+        </ul>
+      </div>
+
+      <!-- TYPE 2 + 1 · hybrid -->
+      <div class="scd-col is-hybrid">
+        <div class="scd-num">2<span class="sym">+</span>1</div>
+        <div class="scd-type">hybrid</div>
+        <svg class="scd-glyph" viewBox="0 0 260 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 2 plus 1 — mixed strategy per attribute">
+          <!-- left rail labels -->
+          <text class="scd-rail" x="2" y="14">2</text>
+          <text class="scd-rail" x="2" y="50">1</text>
+          <line class="scd-rail-line" x1="14" y1="6"  x2="14" y2="34"/>
+          <line class="scd-rail-line" x1="14" y1="42" x2="14" y2="56"/>
+
+          <!-- versioned (Type 2) attrs -->
+          <rect class="scd-bar-v"   x="22"  y="6"  width="60" height="9"/>
+          <rect class="scd-bar-v"   x="70"  y="18" width="80" height="9"/>
+          <rect class="scd-bar-new" x="140" y="30" width="108" height="9"/>
+
+          <!-- overwrite (Type 1) row -->
+          <rect class="scd-bar-old" x="22"  y="44" width="226" height="10"/>
+          <line class="scd-strike"  x1="100" y1="49" x2="240" y2="49"/>
+
+          <line class="scd-axis" x1="22" y1="62" x2="248" y2="62"/>
+          <text class="scd-tick" x="22"  y="71">versioned per attr</text>
+          <text class="scd-tick scd-tick-em" x="248" y="71" text-anchor="end">latest wins</text>
+        </svg>
+        <p class="scd-caption">Some columns version (Type 2), others overwrite (Type 1) — choose per attribute, not per dimension.</p>
+        <ul class="scd-dims">
+          <li><b>dim_location</b><span>socio attrs versioned · names overwrite</span></li>
+        </ul>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- 08 — DIVIDER · ARCHITECTURE -->
+  <section class="slide divider" data-section="arch">
+    <div class="num reveal">02</div>
+    <div class="eyebrow reveal reveal-2">Section two</div>
+    <h1 class="display reveal reveal-3"><em>Architecture</em><br>in motion.</h1>
+    <p class="lede reveal reveal-4" style="margin-top: 22px;">Now the execution: how the design above lands on AWS, end-to-end, with no standing servers.</p>
   </section>
 
   <!-- 05 — ARCHITECTURE DIAGRAM -->
   <section class="slide diagram-slide" data-section="flow">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 01 · Architecture</div>
+        <div class="eyebrow">§ 05 · Architecture</div>
         <h2 class="headline">From a public API to a <em>QuickSight pixel.</em></h2>
       </div>
       <small class="fineprint">Every box is a managed AWS primitive — no standing servers.</small>
@@ -1661,7 +2135,7 @@ pre.mono .h{ color: var(--dusk); }
   <section class="slide full" data-section="services">
     <div class="header reveal">
       <div>
-        <div class="eyebrow">§ 02 · The stack</div>
+        <div class="eyebrow">§ 06 · The stack</div>
         <h2 class="headline">Eleven services, <em>chosen with restraint.</em></h2>
       </div>
       <small class="fineprint">Each service earns its place; together they cover ingest, lake, warehouse, and BI.</small>
@@ -1770,381 +2244,6 @@ pre.mono .h{ color: var(--dusk); }
 
     </div>
   </section>
-
-  <!-- 08 — DIVIDER · WAREHOUSE -->
-  <section class="slide divider" data-section="dw">
-    <div class="num reveal">02</div>
-    <div class="eyebrow reveal reveal-2">Section two</div>
-    <h1 class="display reveal reveal-3">The <em>warehouse</em>,<br>by the book.</h1>
-    <p class="lede reveal reveal-4" style="margin-top: 22px;">Kimball's four-step process, applied step-by-step — grain, dimensions, facts, then everything else.</p>
-  </section>
-
-  <!-- 09 — 4-STEP DIMENSIONAL DESIGN -->
-  <section class="slide steps-slide" data-section="fourstep">
-    <div class="header reveal">
-      <div>
-        <div class="eyebrow">§ 03 · 4-step dimensional design</div>
-        <h2 class="headline">Kimball's process, <em>step by step.</em></h2>
-      </div>
-      <small class="fineprint">Each step asks one question — and the project answers it before moving on to the next.</small>
-    </div>
-
-    <div class="steps-grid reveal reveal-2">
-
-      <!-- STEP 01 — BUSINESS PROCESS -->
-      <div class="step-col">
-        <div class="step-num">01</div>
-        <div class="step-name">business process</div>
-        <p class="step-quote">A business process is a low-level activity performed by the organisation — not a department or function.<span class="step-quote-src">— Kimball · Lecture 02</span></p>
-        <div class="step-our">
-          <span class="step-our-tag">Our project</span>
-          <ul class="step-our-list">
-            <li><b>Reporting a crime incident</b><span>primary fact · 1.5 M rows</span></li>
-            <li><b>Arresting a person</b><span>second process · drives the bus matrix</span></li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- STEP 02 — GRAIN -->
-      <div class="step-col">
-        <div class="step-num">02</div>
-        <div class="step-name">grain</div>
-        <p class="step-quote">Atomic grain refers to the lowest level that data is captured in the business process — preferably the most atomic level possible.<span class="step-quote-src">— Kimball · Lecture 02</span></p>
-        <div class="step-our">
-          <span class="step-our-tag">Our project</span>
-          <ul class="step-our-list">
-            <li><b>fact_crime</b><span>one reported crime incident · keyed by Chicago id</span></li>
-            <li><b>fact_arrest</b><span>one arrest event · one cb_no</span></li>
-            <li><b>type</b><span>transaction fact · insert-only · never revisited</span></li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- STEP 03 — DIMENSIONS -->
-      <div class="step-col">
-        <div class="step-num">03</div>
-        <div class="step-name">dimensions</div>
-        <p class="step-quote">Who, what, when, why, where, and how associated with the event?<span class="step-quote-src">— Kimball · Lecture 02</span></p>
-        <div class="step-our">
-          <span class="step-our-tag">Our project · 6 dims + degenerate</span>
-          <ul class="step-our-list">
-            <li><b>dim_date · dim_time_of_day</b><span>when · role-played twice</span></li>
-            <li><b>dim_location</b><span>where · SCD2 socio-economics</span></li>
-            <li><b>dim_crime_type</b><span>what · IUCR + FBI code</span></li>
-            <li><b>dim_weather · dim_crime_flags</b><span>under what · how (junk)</span></li>
-            <li><b>case_number</b><span>degenerate dim — kept on fact</span></li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- STEP 04 — FACTS -->
-      <div class="step-col">
-        <div class="step-num">04</div>
-        <div class="step-name">facts</div>
-        <p class="step-quote">Facts must be true to the grain. Percentages and ratios are non-additive — store numerator and denominator instead.<span class="step-quote-src">— Kimball · Lecture 02</span></p>
-        <div class="step-our">
-          <span class="step-our-tag">Our project · measures</span>
-          <ul class="step-our-list">
-            <li><b>incident_count = 1</b><span>additive · trivial roll-ups</span></li>
-            <li><b>is_arrest · is_domestic</b><span>semi-additive · 0/1</span></li>
-            <li><b>temp_c · precip_mm · hours_to_update</b><span>additive measures</span></li>
-            <li><b>lat · lng</b><span>non-additive · viz only</span></li>
-          </ul>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="steps-bookend reveal reveal-3">
-      <span class="b">step 0 · <em>gather requirements</em></span>
-      <span class="arrow">→</span>
-      <span class="b">step 5 · <em>finish details</em> · surrogate keys, smart keys, unknown rows</span>
-    </div>
-  </section>
-
-  <!-- 10 — STAR SCHEMA VISUAL -->
-  <section class="slide split" data-section="star">
-    <div class="left">
-      <div class="eyebrow reveal">§ 04 · Star schema</div>
-      <h2 class="headline reveal reveal-2">One fact at the centre. <em>Six dimensions</em> around it.</h2>
-      <p class="body muted reveal reveal-3">The grain is one row per reported incident, identified by Chicago's stable <code style="font-family:var(--mono);">id</code>. Two role-playing date FKs (occurrence + report) reach back to <code style="font-family:var(--mono);">dim_date</code>. Hourly weather and an SCD2-tracked location dimension hang off the same fact.</p>
-      <div class="refs reveal reveal-4">
-        <div class="ref">Grain<b>One reported crime incident</b></div>
-        <div class="ref">Type<b>Transaction fact, atomic grain</b></div>
-        <div class="ref">Surrogates<b>BIGINT IDENTITY · YYYYMMDD smart key</b></div>
-      </div>
-    </div>
-
-    <div class="right">
-      <div class="diagram star reveal reveal-3">
-        <svg viewBox="0 0 920 720" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Star schema diagram">
-          <!-- Connecting lines (drawn first so boxes overlap them cleanly) -->
-          <g class="dg-line dg-line-soft" fill="none">
-            <!-- top three dims → fact -->
-            <path d="M 150 130 L 380 250"/>
-            <path d="M 460 130 L 460 250"/>
-            <path d="M 770 130 L 540 250"/>
-            <!-- bottom three dims → fact -->
-            <path d="M 150 540 L 380 470"/>
-            <path d="M 460 540 L 460 470"/>
-            <path d="M 770 540 L 540 470"/>
-          </g>
-
-          <!-- top row -->
-          <g>
-            <rect x="30"  y="40"  width="240" height="90" rx="3" class="dg-node"/>
-            <text x="42" y="62"  class="dg-tag">scd 0</text>
-            <text x="42" y="86"  class="dg-name-sm">dim_date</text>
-            <text x="42" y="106" class="dg-meta-sm">date_key · full_date · dow</text>
-            <text x="42" y="120" class="dg-meta-sm">is_weekend · month · year</text>
-
-            <rect x="340" y="40"  width="240" height="90" rx="3" class="dg-node"/>
-            <text x="352" y="62"  class="dg-tag">scd 0</text>
-            <text x="352" y="86"  class="dg-name-sm">dim_time_of_day</text>
-            <text x="352" y="106" class="dg-meta-sm">time_key (0–23) · hour_24</text>
-            <text x="352" y="120" class="dg-meta-sm">am_pm · period_of_day</text>
-
-            <rect x="650" y="40"  width="240" height="90" rx="3" class="dg-node"/>
-            <text x="662" y="62"  class="dg-tag">scd 2 + 1 (hybrid)</text>
-            <text x="662" y="86"  class="dg-name-sm">dim_location</text>
-            <text x="662" y="106" class="dg-meta-sm">community_area · district</text>
-            <text x="662" y="120" class="dg-meta-sm">ward · beat · scd_*</text>
-          </g>
-
-          <!-- centre fact -->
-          <g>
-            <rect x="270" y="250" width="380" height="220" rx="3" class="dg-node dg-node-spark"/>
-            <text x="285" y="276" class="dg-tag dg-tag-ember">transaction fact · atomic grain</text>
-            <text x="285" y="312" class="dg-name dg-ember" style="font-size: 30px;">fact_crime</text>
-            <line x1="285" x2="635" y1="328" y2="328" stroke="rgba(227,107,45,.35)" stroke-width="1"/>
-            <text x="285" y="350" class="dg-meta">crime_id (NK)  ·  case_number (DD)</text>
-            <text x="285" y="368" class="dg-meta">occurrence_date_key  ·  report_date_key</text>
-            <text x="285" y="386" class="dg-meta">location_key  ·  crime_type_key</text>
-            <text x="285" y="404" class="dg-meta">weather_key  ·  flags_key</text>
-            <line x1="285" x2="635" y1="416" y2="416" stroke="rgba(227,107,45,.18)" stroke-width="1" stroke-dasharray="2 3"/>
-            <text x="285" y="436" class="dg-meta-sm" style="fill: var(--paper);">incident_count · is_arrest · is_domestic</text>
-            <text x="285" y="454" class="dg-meta-sm" style="fill: var(--paper);">temp_c · precip_mm · lat · lng</text>
-          </g>
-
-          <!-- bottom row -->
-          <g>
-            <rect x="30"  y="540" width="240" height="92" rx="3" class="dg-node"/>
-            <text x="42" y="562"  class="dg-tag">scd 0</text>
-            <text x="42" y="586"  class="dg-name-sm">dim_weather</text>
-            <text x="42" y="606"  class="dg-meta-sm">weather_category · temp_band</text>
-            <text x="42" y="620"  class="dg-meta-sm">precip_band · obs_hour</text>
-
-            <rect x="340" y="540" width="240" height="92" rx="3" class="dg-node"/>
-            <text x="352" y="562" class="dg-tag">scd 1 · junk</text>
-            <text x="352" y="586" class="dg-name-sm">dim_crime_flags</text>
-            <text x="352" y="606" class="dg-meta-sm">flags_key · is_arrest</text>
-            <text x="352" y="620" class="dg-meta-sm">is_domestic · label</text>
-
-            <rect x="650" y="540" width="240" height="92" rx="3" class="dg-node"/>
-            <text x="662" y="562" class="dg-tag">scd 2</text>
-            <text x="662" y="586" class="dg-name-sm">dim_crime_type</text>
-            <text x="662" y="606" class="dg-meta-sm">iucr (NK) · primary_type</text>
-            <text x="662" y="620" class="dg-meta-sm">fbi_code · index_code · scd_*</text>
-          </g>
-
-          <!-- footer note -->
-          <text x="460" y="680" text-anchor="middle" class="dg-meta-sm" style="fill: var(--paper-dim);">Second business process · fact_arrest with dim_arrestee + bridge_arrest_charge (multi-valued, 1–4 charges)</text>
-        </svg>
-      </div>
-    </div>
-  </section>
-
-  <!-- 10 — BUS MATRIX -->
-  <section class="slide bus-slide" data-section="bus">
-    <div class="header reveal">
-      <div>
-        <div class="eyebrow">§ 05 · Bus matrix</div>
-        <h2 class="headline">Two business processes, <em>one set of dimensions.</em></h2>
-      </div>
-      <small class="fineprint">Conformed dimensions are the spine that makes drill-across work between the two facts.</small>
-    </div>
-
-    <!-- Canonical Kimball bus matrix · rows = business processes, cols = dimensions -->
-    <div class="bus-matrix reveal reveal-2">
-      <div class="h h-row">process \ dimension</div>
-      <div class="h h-conform">dim_date</div>
-      <div class="h h-conform">dim_time_of_day</div>
-      <div class="h">dim_location</div>
-      <div class="h h-conform">dim_crime_type</div>
-      <div class="h">dim_weather</div>
-      <div class="h">dim_crime_flags</div>
-      <div class="h">dim_arrestee</div>
-      <div class="h">charge bridge</div>
-
-      <div class="cell label l-crime"><span class="nm">fact_crime</span><span class="gr">one reported incident</span></div>
-      <div class="cell tick tick-conform">●</div>
-      <div class="cell tick tick-conform">●</div>
-      <div class="cell tick">●</div>
-      <div class="cell tick tick-conform">●</div>
-      <div class="cell tick">●</div>
-      <div class="cell tick">●</div>
-      <div class="cell dot">·</div>
-      <div class="cell dot">·</div>
-
-      <div class="cell label l-arrest"><span class="nm">fact_arrest</span><span class="gr">one arrest event</span></div>
-      <div class="cell tick tick-conform">●</div>
-      <div class="cell tick tick-conform">●</div>
-      <div class="cell dot">·</div>
-      <div class="cell tick tick-conform">●</div>
-      <div class="cell dot">·</div>
-      <div class="cell dot">·</div>
-      <div class="cell tick">●</div>
-      <div class="cell tick">●</div>
-    </div>
-
-    <div class="bus-grid reveal reveal-3">
-
-      <!-- CRIME-ONLY DIMS -->
-      <div class="bus-col bus-col-crime">
-        <div class="bus-col-tag">crime only</div>
-        <ul>
-          <li><b>dim_location</b><span>community area · district · ward · beat</span></li>
-          <li><b>dim_weather</b><span>hourly observation, joined by date+hour</span></li>
-          <li><b>dim_crime_flags</b><span>arrest + domestic junk dim</span></li>
-        </ul>
-      </div>
-
-      <!-- CONFORMED DIMS (shared spine) -->
-      <div class="bus-col bus-col-shared">
-        <div class="bus-col-tag">conformed · shared</div>
-        <ul>
-          <li><b>dim_date</b><span>YYYYMMDD smart key, role-played twice</span></li>
-          <li><b>dim_time_of_day</b><span>0–23 hour, period-of-day labels</span></li>
-          <li><b>dim_crime_type</b><span>IUCR · FBI code · index/non-index</span></li>
-        </ul>
-        <div class="bus-col-foot">drill-across spine</div>
-      </div>
-
-      <!-- ARREST-ONLY DIMS -->
-      <div class="bus-col bus-col-arrest">
-        <div class="bus-col-tag">arrest only</div>
-        <ul>
-          <li><b>dim_arrestee</b><span>age · sex · race demographics</span></li>
-          <li><b>bridge_arrest_charge</b><span>multi-valued, 1–4 charges per event</span></li>
-        </ul>
-      </div>
-
-    </div>
-
-    <p class="bus-note reveal reveal-4">
-      One <code style="font-family:var(--mono); font-size: 13px; color: var(--paper);">dim_crime_type</code> serves both the primary type on a crime row and the IUCR-coded charges on the arrest bridge — <b>one definition of "what kind of crime", reused.</b> The two facts never join to each other, only through the conformed spine.
-    </p>
-  </section>
-
-  <!-- 11 — SCD STRATEGY -->
-  <section class="slide full" data-section="scd">
-    <div class="header reveal">
-      <div>
-        <div class="eyebrow">§ 06 · Slowly changing dimensions</div>
-        <h2 class="headline">Every dimension implements an SCD. <em>Type chosen by intent.</em></h2>
-      </div>
-      <small class="fineprint">The rubric requires every dimension to implement an SCD — pick the right type per intent.</small>
-    </div>
-
-    <div class="scd-grid reveal reveal-2">
-
-      <!-- TYPE 0 · retain -->
-      <div class="scd-col">
-        <div class="scd-num">0</div>
-        <div class="scd-type">retain</div>
-        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 0 — set once, never changes">
-          <rect class="scd-bar-static" x="6" y="22" width="228" height="20"/>
-          <text class="scd-bar-text" x="120" y="35" text-anchor="middle">never changes</text>
-          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
-          <text class="scd-tick" x="6" y="70">t₀</text>
-          <text class="scd-tick" x="234" y="70" text-anchor="end">→</text>
-        </svg>
-        <p class="scd-caption">Set once at load time. Calendar, time-of-day, hourly weather — these don't have a "change" story.</p>
-        <ul class="scd-dims">
-          <li><b>dim_date</b><span>calendar attributes are static</span></li>
-          <li><b>dim_time_of_day</b><span>24 fixed rows by design</span></li>
-          <li><b>dim_weather</b><span>immutable hourly observations</span></li>
-        </ul>
-      </div>
-
-      <!-- TYPE 1 · overwrite -->
-      <div class="scd-col">
-        <div class="scd-num">1</div>
-        <div class="scd-type">overwrite</div>
-        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 1 — old replaced by new">
-          <rect class="scd-bar-old" x="6" y="10" width="228" height="14"/>
-          <line class="scd-strike" x1="14" y1="17" x2="226" y2="17"/>
-          <path class="scd-arrow" d="M 30 26 L 30 36" marker-end="url(#scd-arr)"/>
-          <rect class="scd-bar-new" x="6" y="38" width="228" height="14"/>
-          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
-          <text class="scd-tick" x="6" y="70">prior</text>
-          <text class="scd-tick scd-tick-em" x="234" y="70" text-anchor="end">latest only</text>
-          <defs>
-            <marker id="scd-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M0,0 L10,5 L0,10 z" fill="var(--ember)"/>
-            </marker>
-          </defs>
-        </svg>
-        <p class="scd-caption">Replace in place when the source changes. No history kept — the past is gone.</p>
-        <ul class="scd-dims">
-          <li><b>dim_crime_flags</b><span>junk dim, history not needed</span></li>
-          <li><b>dim_arrestee</b><span>not "owned" across time</span></li>
-        </ul>
-      </div>
-
-      <!-- TYPE 2 · add row -->
-      <div class="scd-col">
-        <div class="scd-num">2</div>
-        <div class="scd-type">add row</div>
-        <svg class="scd-glyph" viewBox="0 0 240 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 2 — new row per version">
-          <rect class="scd-bar-v"  x="6"   y="6"  width="76"  height="11"/>
-          <rect class="scd-bar-v"  x="68"  y="22" width="100" height="11"/>
-          <rect class="scd-bar-new" x="148" y="38" width="86"  height="11"/>
-          <line class="scd-axis" x1="6" y1="58" x2="234" y2="58"/>
-          <text class="scd-tick" x="6"   y="70">v₁</text>
-          <text class="scd-tick" x="92"  y="70">v₂</text>
-          <text class="scd-tick scd-tick-em" x="234" y="70" text-anchor="end">v₃ · current</text>
-        </svg>
-        <p class="scd-caption">Add a new row, end-date the old. Historical facts join the version that was active when the event happened.</p>
-        <ul class="scd-dims">
-          <li><b>dim_crime_type</b><span>IUCR codes evolve · keep prior reports correct</span></li>
-        </ul>
-      </div>
-
-      <!-- TYPE 2 + 1 · hybrid -->
-      <div class="scd-col is-hybrid">
-        <div class="scd-num">2<span class="sym">+</span>1</div>
-        <div class="scd-type">hybrid</div>
-        <svg class="scd-glyph" viewBox="0 0 260 72" preserveAspectRatio="xMidYMid meet" aria-label="Type 2 plus 1 — mixed strategy per attribute">
-          <!-- left rail labels -->
-          <text class="scd-rail" x="2" y="14">2</text>
-          <text class="scd-rail" x="2" y="50">1</text>
-          <line class="scd-rail-line" x1="14" y1="6"  x2="14" y2="34"/>
-          <line class="scd-rail-line" x1="14" y1="42" x2="14" y2="56"/>
-
-          <!-- versioned (Type 2) attrs -->
-          <rect class="scd-bar-v"   x="22"  y="6"  width="60" height="9"/>
-          <rect class="scd-bar-v"   x="70"  y="18" width="80" height="9"/>
-          <rect class="scd-bar-new" x="140" y="30" width="108" height="9"/>
-
-          <!-- overwrite (Type 1) row -->
-          <rect class="scd-bar-old" x="22"  y="44" width="226" height="10"/>
-          <line class="scd-strike"  x1="100" y1="49" x2="240" y2="49"/>
-
-          <line class="scd-axis" x1="22" y1="62" x2="248" y2="62"/>
-          <text class="scd-tick" x="22"  y="71">versioned per attr</text>
-          <text class="scd-tick scd-tick-em" x="248" y="71" text-anchor="end">latest wins</text>
-        </svg>
-        <p class="scd-caption">Some columns version (Type 2), others overwrite (Type 1) — choose per attribute, not per dimension.</p>
-        <ul class="scd-dims">
-          <li><b>dim_location</b><span>socio attrs versioned · names overwrite</span></li>
-        </ul>
-      </div>
-
-    </div>
-
-  </section>
-
   <!-- 12 — BIG DATA JUSTIFICATION -->
   <section class="slide bigdata-slide" data-section="bigdata">
     <div class="header reveal">
