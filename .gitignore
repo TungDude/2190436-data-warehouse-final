@@ -18,3 +18,18 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Python / PySpark
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.venv-dev/
+*.egg-info/
+
+# Spark local-mode artifacts (created by tests)
+metastore_db/
+derby.log
+spark-warehouse/
+tests/.spark-warehouse/
+tests/derby.log

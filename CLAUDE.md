@@ -253,6 +253,58 @@ Daily scheduler behavior:
 - The 8-day lookback is a conservative buffer for the source's stated
   seven-day exclusion window.
 
+## Silver Layer / Glue ETL
+
+The silver (standardized) layer is produced by a source-parameterised AWS
+Glue 5.0 PySpark job (`data-warehouse-final-bronze-to-silver`).
+
+Layout and conventions:
+
+- Silver objects live alongside raw in the same bucket under
+  `s3://<raw_bucket>/standardized/<source>/_ingest_year=YYYY/`.
+- Output format is Parquet (Snappy). `partitionOverwriteMode=dynamic`
+  ensures re-runs only rewrite the years a particular ingest touched.
+- The `_ingest_year` partition column is `year(date)` of the source
+  occurrence timestamp, **not** the Lambda's `ingest_date` partition.
+- Glue Data Catalog databases:
+  - `data_warehouse_final_bronze` (covers `raw/<source>/`)
+  - `data_warehouse_final_silver` (covers `standardized/<source>/`)
+- The bronze prefix keeps the historical typo `raw/chicaho_crime/`; the
+  silver table is the canonical `chicago_crime`.
+
+Source code lives under `src/glue_jobs/bronze_to_silver/`:
+
+- `main.py` is the Glue entry point.
+- `registry.py` dispatches `--source` to a handler module.
+- `common.py` holds shared helpers (`to_snake_case`, `parse_chicago_timestamp`,
+  `cast_bool_yn`, `dedup_latest`).
+- `sources/<name>.py` implements per-source `transform(spark,
+  bronze_root_uri)`. Today only `chicago_crime.py` is implemented; new
+  sources are added by dropping a module here and appending the source
+  name to `var.glue_supported_sources` in Terraform.
+
+Workflow:
+
+1. EventBridge Scheduler fires daily at 03:30 America/Chicago and calls
+   `glue:StartWorkflowRun`.
+2. The Glue Workflow (`data-warehouse-final-bronze-to-silver`) runs the
+   bronze Glue Crawler, then fans out to one Glue Job run per supported
+   source, then runs the silver Glue Crawler.
+3. The job reads bronze CSV with explicit casts (no `inferSchema`),
+   deduplicates by source `id` keeping the latest `updated_on`, and writes
+   Parquet to silver.
+
+Local validation (no AWS calls):
+
+```sh
+cd terraform && terraform fmt -check -recursive && terraform validate
+python -m venv .venv-dev && source .venv-dev/bin/activate
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+
+Java 17 is required for Spark 3.5 local tests.
+
 ## Frontend / HTML Verification
 
 When editing the slide deck (`docs/presentation.html`) or any other HTML asset

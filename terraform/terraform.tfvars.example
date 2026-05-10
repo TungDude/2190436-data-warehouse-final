@@ -3,3 +3,18 @@ aws_profile = "data-warehouse-final"
 
 # Keep this spelling unless the project convention changes.
 raw_chicago_crime_prefix = "raw/chicaho_crime"
+
+# ---------------------------------------------------------------------------
+# Silver / Glue overrides (defaults are sensible; uncomment only to override).
+# ---------------------------------------------------------------------------
+
+# silver_prefix       = "standardized"
+# glue_scripts_prefix = "glue/scripts"
+
+# glue_workflow_schedule_expression = "cron(30 3 * * ? *)"
+# glue_workflow_schedule_timezone   = "America/Chicago"
+# glue_workflow_schedule_enabled    = true
+
+# Add additional source names here as their handler modules land
+# under src/glue_jobs/bronze_to_silver/sources/.
+# glue_supported_sources = ["chicago_crime"]
