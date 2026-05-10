@@ -1,6 +1,11 @@
 .agents/AGENTS.local.md
 .claude/CLAUDE.local.md
 
+# Nix
+.direnv/
+result
+result-*
+
 # Terraform
 **/.terraform/*
 *.tfstate
