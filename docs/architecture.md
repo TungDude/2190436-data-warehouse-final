@@ -326,7 +326,7 @@ Total well under $60/month — appropriate for a 20 % project.
 
 ---
 
-## 11. Current Status (as of 2026-05-11)
+## 11. Current Status (as of 2026-05-13)
 
 What is **already built** (per `CLAUDE.md` "Current Ingestion Flow"):
 

@@ -255,8 +255,10 @@ Daily scheduler behavior:
 
 ## Silver Layer / Glue ETL
 
-The silver (standardized) layer is produced by a source-parameterised AWS
-Glue 5.0 PySpark job (`data-warehouse-final-bronze-to-silver`).
+The silver (standardized) layer is produced by per-source AWS Glue 5.0
+PySpark jobs, one per `var.glue_supported_sources` entry. Today the only
+implemented source is `chicago_crime`, named
+`data-warehouse-final-bronze-to-silver-chicago_crime`.
 
 Layout and conventions:
 
@@ -266,11 +268,22 @@ Layout and conventions:
   ensures re-runs only rewrite the years a particular ingest touched.
 - The `_ingest_year` partition column is `year(date)` of the source
   occurrence timestamp, **not** the Lambda's `ingest_date` partition.
+- Rows whose source `date` cannot be parsed (NULL after `to_timestamp`)
+  are routed to the sentinel partition `_ingest_year=9999/` rather than
+  being dropped. Silver triages, it does not refuse — the gold loader is
+  responsible for excluding the sentinel partition (`WHERE _ingest_year
+  != 9999`) when building dimensional rows. The sentinel is enforced and
+  tested in
+  `tests/glue_jobs/test_chicago_crime.py::test_unparseable_date_falls_to_sentinel_year`.
 - Glue Data Catalog databases:
   - `data_warehouse_final_bronze` (covers `raw/<source>/`)
   - `data_warehouse_final_silver` (covers `standardized/<source>/`)
 - The bronze prefix keeps the historical typo `raw/chicaho_crime/`; the
   silver table is the canonical `chicago_crime`.
+- Glue Jobs are provisioned one per source via Terraform `for_each` over
+  `var.glue_supported_sources`. Adding a source appends one Glue Job, one
+  CloudWatch log group, and extends the workflow trigger fan-out — no
+  Terraform change beyond the var list.
 
 Source code lives under `src/glue_jobs/bronze_to_silver/`:
 
