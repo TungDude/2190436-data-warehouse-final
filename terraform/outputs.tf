@@ -42,9 +42,9 @@ output "glue_silver_database_name" {
   value       = aws_glue_catalog_database.silver.name
 }
 
-output "glue_bronze_to_silver_job_name" {
-  description = "Glue job name for the bronze->silver source-parameterised PySpark job."
-  value       = aws_glue_job.bronze_to_silver.name
+output "glue_bronze_to_silver_job_names" {
+  description = "Map of source name -> Glue job name for the per-source bronze->silver jobs."
+  value       = { for k, j in aws_glue_job.bronze_to_silver : k => j.name }
 }
 
 output "glue_workflow_name" {

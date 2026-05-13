@@ -109,6 +109,17 @@ variable "fetch_schedule_enabled" {
 # Silver / Glue ETL configuration
 # ---------------------------------------------------------------------------
 
+variable "raw_prefix" {
+  description = "S3 key prefix (no leading or trailing slash) for the bronze / raw zone. The chicago_crime Lambda still owns the source-specific subprefix (`raw_chicago_crime_prefix`) under this root."
+  type        = string
+  default     = "raw"
+
+  validation {
+    condition     = !startswith(var.raw_prefix, "/") && !endswith(var.raw_prefix, "/")
+    error_message = "raw_prefix must not start or end with '/'."
+  }
+}
+
 variable "silver_prefix" {
   description = "S3 key prefix (no leading or trailing slash) for the silver / standardized zone."
   type        = string

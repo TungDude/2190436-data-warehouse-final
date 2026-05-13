@@ -54,10 +54,12 @@ the existing state should show:
   that moved between files (the file split in this PR is purely cosmetic).
 - **Adds only** for `aws_s3_object.silver_prefix`,
   `aws_s3_object.glue_scripts_prefix`, `aws_s3_object.bronze_to_silver_script`,
-  the per-file `aws_s3_object.bronze_to_silver_extra_py["..."]` entries, the
-  Glue catalog/crawler/job/workflow/trigger resources, the Glue IAM role
-  + policies, the Glue CloudWatch log group, the workflow-starter IAM role,
-  and `aws_scheduler_schedule.daily_glue_workflow`.
+  the single `aws_s3_object.bronze_to_silver_libs` zip object, one
+  `aws_glue_job.bronze_to_silver["<source>"]` and one
+  `aws_cloudwatch_log_group.glue_bronze_to_silver["<source>"]` per
+  `var.glue_supported_sources` element, the Glue catalog DBs, both crawlers,
+  the workflow + triggers, the Glue IAM role + policies, the workflow-starter
+  IAM role, and `aws_scheduler_schedule.daily_glue_workflow`.
 
 Java 17 is required for Spark 3.5 if you want to run the local pytest suite
 (see `requirements-dev.txt`). The repo's `flake.nix` provides a JDK; you can
@@ -77,6 +79,40 @@ after the chicago_crime fetch Lambda). To trigger an ad-hoc run:
 
 ```sh
 aws glue start-workflow-run --name $(terraform output -raw glue_workflow_name)
+```
+
+## Smoke test the workflow on first apply
+
+The Glue Workflow's entry trigger is `ON_DEMAND` and is started by EventBridge
+Scheduler via `glue:StartWorkflowRun`. Before relying on the daily schedule,
+confirm an end-to-end run works:
+
+```sh
+export AWS_PROFILE=data-warehouse-final
+WF=$(terraform -chdir=terraform output -raw glue_workflow_name)
+
+# 1. Kick the workflow.
+RUN_ID=$(aws glue start-workflow-run --name "$WF" --query 'RunId' --output text)
+
+# 2. Poll until COMPLETED. Expect ~5-10 minutes for the bronze crawler +
+#    one chicago_crime job + the silver crawler on a cold start.
+until [ "$(aws glue get-workflow-run --name "$WF" --run-id "$RUN_ID" \
+  --query 'Run.Status' --output text)" = "COMPLETED" ]; do
+  sleep 30
+  aws glue get-workflow-run --name "$WF" --run-id "$RUN_ID" \
+    --query 'Run.Statistics' --output table
+done
+
+# 3. Verify silver objects exist.
+aws s3 ls "s3://$(terraform -chdir=terraform output -raw raw_bucket_name)/$(terraform -chdir=terraform output -raw silver_prefix)/chicago_crime/" --recursive | head
+```
+
+If the workflow status is `ERROR` at any node, inspect the run graph:
+
+```sh
+aws glue get-workflow-run --name "$WF" --run-id "$RUN_ID" --include-graph \
+  --query 'Run.Graph.Nodes[?Type==`JOB` || Type==`CRAWLER`].{Name:Name,Type:Type,Status:JobDetails.JobRuns[0].JobRunState || CrawlerDetails.Crawls[0].State}' \
+  --output table
 ```
 
 ## Backfill

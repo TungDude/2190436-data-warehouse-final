@@ -17,15 +17,16 @@ resource "aws_glue_catalog_database" "silver" {
 }
 
 # ---------------------------------------------------------------------------
-# Glue script + extra-py-files uploads (S3-hosted, re-uploaded on file change)
+# Glue script + helper-library uploads
 #
-# We ship the bronze_to_silver helper modules as a single .zip rather than as
-# loose .py files. AWS Glue's --extra-py-files flattens loose .py files into
-# a single working directory on sys.path, which (a) collides duplicate names
-# (e.g., bronze_to_silver/__init__.py vs sources/__init__.py) and (b) breaks
-# relative imports because each .py becomes a top-level module. A .zip is
-# added to sys.path *as a unit* so the package directory structure inside is
-# preserved and Python's zipimport handles it natively.
+# `main.py` is uploaded as a standalone object and referenced from the job's
+# `command.script_location`. The package's helper modules (registry, common,
+# sources/*) are zipped into a single archive and referenced via
+# `--extra-py-files`. We use a zip rather than loose .py files because Glue's
+# --extra-py-files flattens loose files into one sys.path directory — which
+# (a) collides duplicate basenames like __init__.py across the package tree
+# and (b) breaks intra-package imports. zipimport handles the package tree
+# natively when the archive is added to sys.path as a unit.
 # ---------------------------------------------------------------------------
 
 locals {
@@ -90,6 +91,12 @@ resource "aws_iam_role" "glue_service" {
   tags = local.common_tags
 }
 
+# AWSGlueServiceRole is the AWS-managed policy for Glue service roles. It grants
+# broad access including read/write on any bucket beginning with `aws-glue-*`,
+# which is wider than this project strictly needs. Acceptable for a course
+# project; for production, replace with a tighter inline policy that only grants
+# the Glue service operations (CreateTable/UpdateTable/GetPartition/etc.) the
+# crawlers and job actually need.
 resource "aws_iam_role_policy_attachment" "glue_managed" {
   role       = aws_iam_role.glue_service.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
@@ -112,7 +119,7 @@ resource "aws_iam_role_policy" "glue_s3_access" {
         Sid      = "ReadRawObjects"
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:GetObjectVersion"]
-        Resource = "${aws_s3_bucket.raw.arn}/raw/*"
+        Resource = "${aws_s3_bucket.raw.arn}/${var.raw_prefix}/*"
       },
       {
         Sid    = "WriteSilverObjects"
@@ -153,19 +160,30 @@ resource "aws_iam_role_policy" "glue_s3_access" {
 }
 
 resource "aws_cloudwatch_log_group" "glue_bronze_to_silver" {
-  name              = "/aws-glue/jobs/${var.project_name}-bronze-to-silver"
+  for_each = toset(var.glue_supported_sources)
+
+  name              = "/aws-glue/jobs/${var.project_name}-bronze-to-silver-${each.value}"
   retention_in_days = var.glue_log_retention_days
 
   tags = local.common_tags
 }
 
 # ---------------------------------------------------------------------------
-# Glue ETL job (bronze -> silver, source-parameterised)
+# Glue ETL job (bronze -> silver, one job per source)
+#
+# We provision one Glue Job per `var.glue_supported_sources` entry so the
+# `after_silver_jobs` trigger's AND predicate references distinct job_names.
+# Glue Trigger conditions evaluate per-job-name: with a single parameterised
+# job, multiple identical conditions under an AND collapse to one and the
+# silver crawler would fire after the first source completes instead of all
+# of them. One job per source makes the predicate unambiguous.
 # ---------------------------------------------------------------------------
 
 resource "aws_glue_job" "bronze_to_silver" {
-  name              = "${var.project_name}-bronze-to-silver"
-  description       = "Bronze -> silver source-parameterised PySpark job. Run via Glue Workflow with --source set per source."
+  for_each = toset(var.glue_supported_sources)
+
+  name              = "${var.project_name}-bronze-to-silver-${each.value}"
+  description       = "Bronze -> silver PySpark job for source ${each.value}."
   role_arn          = aws_iam_role.glue_service.arn
   glue_version      = var.glue_version
   worker_type       = var.glue_worker_type
@@ -186,17 +204,21 @@ resource "aws_glue_job" "bronze_to_silver" {
     "--enable-job-insights"              = "true"
     "--enable-glue-datacatalog"          = "true"
     "--enable-spark-ui"                  = "true"
-    "--TempDir"                          = "s3://${aws_s3_bucket.raw.bucket}/glue/tmp/"
-    "--spark-event-logs-path"            = "s3://${aws_s3_bucket.raw.bucket}/glue/spark-events/"
-    # Default --source is for ad-hoc smoke runs (e.g., aws glue start-job-run
-    # without arguments). Workflow trigger overrides this per-source.
-    "--source"          = var.glue_supported_sources[0]
-    "--raw_bucket"      = aws_s3_bucket.raw.bucket
-    "--raw_prefix"      = "raw"
-    "--silver_prefix"   = var.silver_prefix
-    "--bronze_database" = aws_glue_catalog_database.bronze.name
-    "--silver_database" = aws_glue_catalog_database.silver.name
-    "--extra-py-files"  = "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.bronze_to_silver_libs.key}"
+    # Explicitly disable Glue job bookmarks. Bronze -> silver re-reads every
+    # bronze partition on each run because dedup-by-id-keeping-latest-
+    # updated_on only resolves correctly when the full set of duplicates is in
+    # scope; a future maintainer enabling bookmarks would silently break the
+    # upsert-by-id contract from dimensional-design.md §3.2.1.
+    "--job-bookmark-option"   = "job-bookmark-disable"
+    "--TempDir"               = "s3://${aws_s3_bucket.raw.bucket}/glue/tmp/"
+    "--spark-event-logs-path" = "s3://${aws_s3_bucket.raw.bucket}/glue/spark-events/"
+    "--source"                = each.value
+    "--raw_bucket"            = aws_s3_bucket.raw.bucket
+    "--raw_prefix"            = var.raw_prefix
+    "--silver_prefix"         = var.silver_prefix
+    "--bronze_database"       = aws_glue_catalog_database.bronze.name
+    "--silver_database"       = aws_glue_catalog_database.silver.name
+    "--extra-py-files"        = "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.bronze_to_silver_libs.key}"
   }
 
   depends_on = [
@@ -219,7 +241,7 @@ resource "aws_glue_crawler" "bronze" {
   database_name = aws_glue_catalog_database.bronze.name
 
   s3_target {
-    path = "s3://${aws_s3_bucket.raw.bucket}/raw/"
+    path = "s3://${aws_s3_bucket.raw.bucket}/${var.raw_prefix}/"
   }
 
   # Critical: TableLevelConfiguration = 3 places the table at
@@ -243,8 +265,14 @@ resource "aws_glue_crawler" "bronze" {
     delete_behavior = "LOG"
   }
 
+  # Bronze is append-only: each Lambda run lands one new
+  # ingest_date=YYYY-MM-DD/ folder under raw/<source>/. CRAWL_NEW_FOLDERS_ONLY
+  # makes each daily crawl a constant-cost operation regardless of historical
+  # backfill size. AWS Glue notes this requires schema_change_policy
+  # delete_behavior = "LOG" (set above) and treats update_behavior as
+  # informational; both are compatible with our config.
   recrawl_policy {
-    recrawl_behavior = "CRAWL_EVERYTHING"
+    recrawl_behavior = "CRAWL_NEW_FOLDERS_ONLY"
   }
 
   lineage_configuration {
@@ -337,14 +365,13 @@ resource "aws_glue_trigger" "after_bronze_crawler" {
     }
   }
 
+  # Each per-source Glue job already has its `--source` baked into
+  # `default_arguments`, so we fan out by job resource (not by argument).
   dynamic "actions" {
-    for_each = toset(var.glue_supported_sources)
+    for_each = aws_glue_job.bronze_to_silver
 
     content {
-      job_name = aws_glue_job.bronze_to_silver.name
-      arguments = {
-        "--source" = actions.value
-      }
+      job_name = actions.value.name
     }
   }
 
@@ -363,11 +390,14 @@ resource "aws_glue_trigger" "after_silver_jobs" {
   predicate {
     logical = "AND"
 
+    # One condition per per-source Glue job, all required (logical = AND).
+    # Distinct job_names mean Glue's evaluator treats them as independent
+    # checks rather than collapsing duplicates.
     dynamic "conditions" {
-      for_each = toset(var.glue_supported_sources)
+      for_each = aws_glue_job.bronze_to_silver
 
       content {
-        job_name = aws_glue_job.bronze_to_silver.name
+        job_name = conditions.value.name
         state    = "SUCCEEDED"
       }
     }
