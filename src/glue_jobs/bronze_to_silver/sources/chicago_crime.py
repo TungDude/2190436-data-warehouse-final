@@ -15,6 +15,7 @@ filesystem path so Spark's CSV reader handles both transparently.
 from __future__ import annotations
 
 import logging
+from typing import Final
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -47,8 +48,15 @@ except ImportError:  # pragma: no cover
 
 SOURCE_NAME = "chicago_crime"
 
-# Bronze keeps the historical ``chicaho`` typo (we do not rewrite the
-# backfill); silver fixes it.
+# Bronze keeps the historical ``chicaho`` typo (we will not rewrite the
+# historical backfill). Silver fixes it to the canonical spelling.
+#
+# This typo is *load-bearing* in three places and they must all stay in sync:
+#   - terraform/variables.tf:40   var.raw_chicago_crime_prefix
+#   - terraform/lambda_chicago_crime.tf:47   Lambda IAM PutObject scope
+#   - this constant
+# A rename of the bronze prefix requires changing all three together, plus a
+# data move of the existing raw/chicaho_crime/* under the new prefix.
 BRONZE_SUBPREFIX = "chicaho_crime"
 SILVER_TABLE_NAME = "chicago_crime"
 
@@ -56,8 +64,9 @@ SILVER_PARTITION_COLS = ["_ingest_year"]
 
 # Sentinel year used for rows whose ``date`` failed to parse, so the
 # partitioned write does not crash and the bad rows are easy to triage.
-# Must fit ``ShortType`` (max 32767), which 9999 does.
-_PARTITION_NULL_SENTINEL = 9999
+# Must fit ``ShortType`` (max 32767), which 9999 does. The gold loader is
+# responsible for excluding ``_ingest_year = 9999`` when building dim rows.
+_PARTITION_NULL_SENTINEL: Final[int] = 9999
 
 _logger = logging.getLogger(__name__)
 
@@ -153,6 +162,10 @@ def transform(spark: SparkSession, bronze_root_uri: str) -> DataFrame:
         )
         .withColumn("arrest", cast_bool_yn(F.col("arrest")))
         .withColumn("domestic", cast_bool_yn(F.col("domestic")))
+        # ``beat`` and ``district`` are kept as StringType to preserve zero-
+        # padded codes (``"001"``, not ``1``). dim_location in
+        # dimensional-design.md §8.3.7 declares them as TEXT — the future
+        # silver -> gold loader must treat them as opaque strings, not ints.
         .withColumn("beat", F.col("beat").cast(StringType()))
         .withColumn("district", F.col("district").cast(StringType()))
         .withColumn("ward", F.col("ward").cast(ShortType()))

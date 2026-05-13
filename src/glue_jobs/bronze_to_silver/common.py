@@ -79,8 +79,16 @@ def dedup_latest(
     order_cols = list(order_cols)
 
     # Reserved helper column name; prefixed and suffixed to minimise the
-    # chance of colliding with a real source column.
+    # chance of colliding with a real source column. We still fail loudly if
+    # a source ever introduces a column with this exact name, because a
+    # silent overwrite would corrupt dedup ranks.
     helper = "__dedup_rn__"
+    if helper in df.columns:
+        raise ValueError(
+            f"dedup_latest helper column name '{helper}' collides with an "
+            f"existing source column. Rename the source column or update "
+            f"common.dedup_latest's helper constant."
+        )
     window = Window.partitionBy(*key_cols).orderBy(*order_cols)
     ranked = df.withColumn(helper, F.row_number().over(window))
     return ranked.where(F.col(helper) == 1).drop(helper)
