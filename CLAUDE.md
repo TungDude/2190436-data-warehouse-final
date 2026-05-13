@@ -253,6 +253,71 @@ Daily scheduler behavior:
 - The 8-day lookback is a conservative buffer for the source's stated
   seven-day exclusion window.
 
+## Silver Layer / Glue ETL
+
+The silver (standardized) layer is produced by per-source AWS Glue 5.0
+PySpark jobs, one per `var.glue_supported_sources` entry. Today the only
+implemented source is `chicago_crime`, named
+`data-warehouse-final-bronze-to-silver-chicago_crime`.
+
+Layout and conventions:
+
+- Silver objects live alongside raw in the same bucket under
+  `s3://<raw_bucket>/standardized/<source>/_ingest_year=YYYY/`.
+- Output format is Parquet (Snappy). `partitionOverwriteMode=dynamic`
+  ensures re-runs only rewrite the years a particular ingest touched.
+- The `_ingest_year` partition column is `year(date)` of the source
+  occurrence timestamp, **not** the Lambda's `ingest_date` partition.
+- Rows whose source `date` cannot be parsed (NULL after `to_timestamp`)
+  are routed to the sentinel partition `_ingest_year=9999/` rather than
+  being dropped. Silver triages, it does not refuse — the gold loader is
+  responsible for excluding the sentinel partition (`WHERE _ingest_year
+  != 9999`) when building dimensional rows. The sentinel is enforced and
+  tested in
+  `tests/glue_jobs/test_chicago_crime.py::test_unparseable_date_falls_to_sentinel_year`.
+- Glue Data Catalog databases:
+  - `data_warehouse_final_bronze` (covers `raw/<source>/`)
+  - `data_warehouse_final_silver` (covers `standardized/<source>/`)
+- The bronze prefix keeps the historical typo `raw/chicaho_crime/`; the
+  silver table is the canonical `chicago_crime`.
+- Glue Jobs are provisioned one per source via Terraform `for_each` over
+  `var.glue_supported_sources`. Adding a source appends one Glue Job, one
+  CloudWatch log group, and extends the workflow trigger fan-out — no
+  Terraform change beyond the var list.
+
+Source code lives under `src/glue_jobs/bronze_to_silver/`:
+
+- `main.py` is the Glue entry point.
+- `registry.py` dispatches `--source` to a handler module.
+- `common.py` holds shared helpers (`to_snake_case`, `parse_chicago_timestamp`,
+  `cast_bool_yn`, `dedup_latest`).
+- `sources/<name>.py` implements per-source `transform(spark,
+  bronze_root_uri)`. Today only `chicago_crime.py` is implemented; new
+  sources are added by dropping a module here and appending the source
+  name to `var.glue_supported_sources` in Terraform.
+
+Workflow:
+
+1. EventBridge Scheduler fires daily at 03:30 America/Chicago and calls
+   `glue:StartWorkflowRun`.
+2. The Glue Workflow (`data-warehouse-final-bronze-to-silver`) runs the
+   bronze Glue Crawler, then fans out to one Glue Job run per supported
+   source, then runs the silver Glue Crawler.
+3. The job reads bronze CSV with explicit casts (no `inferSchema`),
+   deduplicates by source `id` keeping the latest `updated_on`, and writes
+   Parquet to silver.
+
+Local validation (no AWS calls):
+
+```sh
+cd terraform && terraform fmt -check -recursive && terraform validate
+python -m venv .venv-dev && source .venv-dev/bin/activate
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+
+Java 17 is required for Spark 3.5 local tests.
+
 ## Frontend / HTML Verification
 
 When editing the slide deck (`docs/presentation.html`) or any other HTML asset

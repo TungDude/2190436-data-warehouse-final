@@ -87,7 +87,8 @@ Slides 6–7 (DW vs DL contrast table).
 ```
                                   +-----------------------------------+
                                   |  EventBridge Scheduler (cron)    |
-                                  |  daily 02:00 America/Chicago     |
+                                  |  Lambdas: 02:00 America/Chicago  |
+                                  |  Glue Workflow: 03:30 same TZ    |
                                   +-----------------+-----------------+
                                                     |
             +---------------------+-----------------+-----------------+---------------------+
@@ -325,7 +326,7 @@ Total well under $60/month — appropriate for a 20 % project.
 
 ---
 
-## 11. Current Status (as of 2026-05-10)
+## 11. Current Status (as of 2026-05-13)
 
 What is **already built** (per `CLAUDE.md` "Current Ingestion Flow"):
 
@@ -334,17 +335,24 @@ What is **already built** (per `CLAUDE.md` "Current Ingestion Flow"):
   America/Chicago, with 8-day lookback.
 - Historical backfill 2019-01-01 → 2026-04-30 in
   `raw/chicaho_crime/ingest_date=…/`.
+- **Bronze → Silver Glue stack — chicago_crime only.** Glue Catalog DBs
+  (`data_warehouse_final_bronze`, `data_warehouse_final_silver`), bronze and
+  silver Glue Crawlers, source-parameterised Glue 5.0 PySpark Job, Glue
+  Workflow chain (bronze crawler → per-source job → silver crawler), and an
+  EventBridge Scheduler that starts the workflow daily at 03:30
+  America/Chicago via `glue:StartWorkflowRun`.
 
 What is **next** (in order of dependency):
 
 1. Provision RDS PostgreSQL 16 (Terraform). Apply `dimensional-design.md`
    DDL into schemas `raw_stg`, `dw_staging`, `dw`.
 2. Add the four remaining ingest Lambdas (§5 sources 2–5).
-3. Add Glue Crawler + Glue Database for bronze and silver.
-4. Write the bronze → silver Glue PySpark job (one job, source-parameterised).
-5. Write the silver → gold Glue PySpark job (SCD-aware merge into RDS).
-6. Wire the Glue Workflow (§7) and a single EventBridge rule that fires it.
-7. Build the two QuickSight dashboards (§8).
+3. Add the four remaining bronze→silver source modules under
+   `src/glue_jobs/bronze_to_silver/sources/` and append their names to
+   `var.glue_supported_sources`. The crawlers/job/workflow are already in
+   place and pick up new sources without further Terraform.
+4. Write the silver → gold Glue PySpark job (SCD-aware merge into RDS).
+5. Build the two QuickSight dashboards (§8).
 
 Each step is independently mergeable; nothing in here forces a big-bang
 release.
