@@ -17,14 +17,18 @@ os.environ["TZ"] = "America/Chicago"
 if hasattr(time, "tzset"):  # POSIX only; Spark's local mode is POSIX-only too.
     time.tzset()
 
+# Pin Spark's Python interpreter to the one running these tests. Without this,
+# Spark workers spawn via system `python3`, which on Nix dev shells is often a
+# different minor version than the venv driver — PySpark refuses to run with
+# mismatched minor versions ([PYTHON_VERSION_MISMATCH]).
+os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
+os.environ.setdefault("PYSPARK_DRIVER_PYTHON", sys.executable)
+
 import pytest  # noqa: E402
 
-# Make ``src/`` importable so ``from glue_jobs.bronze_to_silver...`` works
-# without the user installing the package.
+# ``src/`` is on sys.path via ``[tool.pytest.ini_options].pythonpath`` in
+# pyproject.toml — no runtime sys.path mutation needed here.
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
 
 
 @pytest.fixture(scope="session")

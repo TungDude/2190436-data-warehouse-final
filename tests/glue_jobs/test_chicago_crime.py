@@ -34,8 +34,10 @@ def transformed(spark, isolated_bronze_root):
     )
 
 
-def test_dedup_to_four_rows(transformed):
-    assert transformed.count() == 4
+def test_dedup_to_five_rows(transformed):
+    """Six fixture rows minus one dedup'd duplicate id leaves five survivors:
+    four with a parseable ``date`` plus one sentinel-year row."""
+    assert transformed.count() == 5
 
 
 def test_drops_redundant_columns(transformed):
@@ -79,13 +81,14 @@ def test_dedup_keeps_latest_updated_on_row(transformed):
 
 
 def test_partition_distribution_uses_occurrence_year(transformed):
-    """Row 4's date is 2023-12-31 even though ingest_date is 2024-06-01;
-    the partition column must follow the occurrence year."""
+    """Row 4's date is 2023-12-31 even though ingest_date is 2024-06-01; the
+    partition column must follow the occurrence year. Row 6's date is
+    unparseable so it lands in the sentinel partition (9999)."""
     counts = {
         r._ingest_year: r["count"]
         for r in transformed.groupBy("_ingest_year").count().collect()
     }
-    assert counts == {2023: 1, 2024: 3}
+    assert counts == {2023: 1, 2024: 3, 9999: 1}
 
 
 def test_null_community_area_and_coords_survive(transformed):
@@ -144,3 +147,44 @@ def test_empty_bronze_returns_empty_dataframe_with_silver_schema(
     assert [f.name for f in df.schema.fields] == [
         f.name for f in chicago_crime.SILVER_SCHEMA.fields
     ]
+
+
+def test_unparseable_date_falls_to_sentinel_year(transformed):
+    """Rows whose ``date`` cannot be parsed must land in the sentinel
+    partition (``_ingest_year = 9999``) rather than being dropped, and
+    their ``date`` column must be NULL post-cast. Silver triages; it does
+    not refuse malformed bronze rows."""
+    rows = transformed.where(F.col("id") == 13000005).collect()
+    assert len(rows) == 1
+    sentinel_row = rows[0]
+    assert sentinel_row.date is None
+    assert sentinel_row._ingest_year == chicago_crime._PARTITION_NULL_SENTINEL
+
+
+def test_empty_bronze_fast_path_skips_csv_read(
+    spark, empty_bronze_root, monkeypatch
+):
+    """If the empty-input guard fires, the transform must NOT invoke the CSV
+    reader — protects against a future refactor that accidentally drops the
+    early return."""
+    called = {"csv": False}
+
+    real_read = spark.read
+
+    class GuardedReader:
+        def __getattr__(self, name):
+            return getattr(real_read, name)
+
+        def csv(self, *args, **kwargs):
+            called["csv"] = True
+            raise AssertionError("spark.read.csv must not be called on empty bronze")
+
+    monkeypatch.setattr(
+        type(spark), "read", property(lambda _self: GuardedReader())
+    )
+
+    df = chicago_crime.transform(
+        spark=spark, bronze_root_uri=_bronze_root(empty_bronze_root)
+    )
+    assert df.count() == 0
+    assert called["csv"] is False

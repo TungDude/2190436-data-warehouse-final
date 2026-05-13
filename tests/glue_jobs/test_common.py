@@ -97,3 +97,17 @@ def test_dedup_latest_handles_null_ordering(spark):
         order_cols=[F.col("ts").desc_nulls_last()],
     )
     assert [r.val for r in deduped.collect()] == ["real_ts"]
+
+
+def test_dedup_latest_rejects_helper_column_collision(spark):
+    """If a source column ever uses the helper's reserved name, dedup_latest
+    must fail loudly rather than silently overwrite the source value."""
+    df = spark.createDataFrame(
+        [Row(id=1, ts="2024-01-01", __dedup_rn__="anything")]
+    )
+    with pytest.raises(ValueError, match="__dedup_rn__"):
+        common.dedup_latest(
+            df,
+            key_cols=["id"],
+            order_cols=[F.col("ts").desc_nulls_last()],
+        )
