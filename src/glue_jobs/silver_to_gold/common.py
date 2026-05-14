@@ -113,30 +113,42 @@ def read_silver_table(
 # ---------------------------------------------------------------------------
 
 
+# Sentinels for compute_scd_hash. Both are structural escape sequences
+# that cannot legitimately appear in Chicago-crime silver data after
+# silver's snake-case-and-cast pipeline:
+#
+#   _NULL_SENTINEL  replaces NULL inside a tracked column so
+#                   (NULL, "x") and ("", "x") hash differently
+#   _COL_SEPARATOR  joins per-column rendered values so ("ab", "c") and
+#                   ("a", "bc") hash differently
+#
+# Using empty strings for either (the earlier design) collided pairs like
+# the above and caused SCD2 to silently miss real attribute changes.
+_NULL_SENTINEL = "<<NULL>>"
+_COL_SEPARATOR = "||"
+
+
 def compute_scd_hash(df: DataFrame, tracked_cols: list[str]) -> DataFrame:
     """Add a ``scd_hash`` column = SHA-256 over ``tracked_cols``.
 
-    Null vs empty string disambiguation: nulls are replaced with the
-    single non-printable character ```` so ``(NULL, "x")`` and
-    ``("x", NULL)`` produce different hashes (an empty-string sentinel
-    would collide with a real empty-string value).
-
-    Returns a new DataFrame with ``scd_hash`` appended; the existing
-    columns are unchanged.
+    Null vs empty disambiguation uses ``_NULL_SENTINEL``; column-boundary
+    ambiguity uses ``_COL_SEPARATOR``. See the module-level constants for
+    rationale. Returns a new DataFrame with ``scd_hash`` appended; the
+    existing columns are unchanged.
     """
     if not tracked_cols:
-        # No tracked columns means "every row hashes to the same constant"
-        # — SCD2 then collapses to insert-once-per-NK semantics, which is
-        # the correct behaviour for V1 dim_location while source 3 hasn't
-        # landed yet.
+        # No tracked columns -> every row hashes to the same constant,
+        # which collapses SCD2 to insert-once-per-NK semantics. That is
+        # the correct V1 behaviour for dim_location (no SCD2-tracked
+        # attributes until source 3 lands).
         constant_hash = F.sha2(F.lit(""), 256).cast(BinaryType())
         return df.withColumn("scd_hash", constant_hash)
 
     parts = [
-        F.coalesce(F.col(c).cast("string"), F.lit(""))
+        F.coalesce(F.col(c).cast("string"), F.lit(_NULL_SENTINEL))
         for c in tracked_cols
     ]
-    hash_col = F.sha2(F.concat_ws("", *parts), 256).cast(BinaryType())
+    hash_col = F.sha2(F.concat_ws(_COL_SEPARATOR, *parts), 256).cast(BinaryType())
     return df.withColumn("scd_hash", hash_col)
 
 
@@ -297,6 +309,20 @@ def _apply_scd2_sql(
            AND {nk_join}
     """
 
+    # The INSERT derives scd_version from MAX(scd_version) over ALL target
+    # rows (current + expired) for the NK. This is correct EVEN AFTER the
+    # UPDATE above expired the previous current row, because the UPDATE
+    # only flips is_current=FALSE / scd_end_date=today — the expired row
+    # stays in place and contributes to MAX. So prev_max+1 always yields
+    # the next available version number.
+    #
+    # Same-day double-version caveat: the natural-key UNIQUE constraint
+    # (NK, scd_start_date) prevents inserting a second version on the
+    # same calendar day. Idempotent re-runs of the same data are safe
+    # (the hash-equal pre-filter drops them before they reach this
+    # INSERT). Two genuinely different versions for the same NK within
+    # one Chicago day would fail the constraint and roll back the whole
+    # transaction — acceptable given the once-daily ingest cadence.
     insert_sql = f"""
         INSERT INTO {target_table} (
             {insert_col_list},

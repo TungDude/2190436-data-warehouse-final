@@ -75,9 +75,21 @@ def load(
     silver_database: str,
 ) -> dict[str, int]:
     crime = read_silver_table(spark, silver_database, "chicago_crime")
+    # read_silver_table already filtered _ingest_year=9999 rows out, so
+    # `date` is non-NULL here. The coalesce(...UNKNOWN_DIM_KEY) fallbacks
+    # below are belt-and-suspenders against a future silver-layer change
+    # that stops triaging unparseable dates to the sentinel partition.
 
     # ------------------------------------------------------------------
     # FK preparation: derive smart keys and helper columns.
+    #
+    # Note on `report_date_key`: dimensional-design.md §3.3 names this the
+    # "report" date key, but the underlying silver column is `updated_on`
+    # (Chicago's "last modification time"). The Chicago Crime feed has no
+    # discrete reported-at column distinct from `date`, so the role-playing
+    # date dim's "report" role is satisfied by `updated_on` as the closest
+    # proxy. Track 6 docs this; do NOT rename without coordinating with
+    # the dimensional design.
     # ------------------------------------------------------------------
     crime = (
         crime.withColumn("occurrence_date", F.to_date("date"))
@@ -90,6 +102,9 @@ def load(
         )
         .withColumn(
             "occurrence_time_key",
+            # After sentinel filtering this is always 0..23 and never falls
+            # to UNKNOWN (the .coalesce branch is dead in V1 but kept for
+            # the defensive-trim-fail-loud posture from CLAUDE.md).
             F.coalesce(F.hour("date").cast("smallint"), F.lit(UNKNOWN_DIM_KEY).cast("smallint")),
         )
         .withColumn(
@@ -188,18 +203,30 @@ def load(
         .withColumnRenamed("is_arrest", "_flags_is_arrest")
         .withColumnRenamed("is_domestic", "_flags_is_domestic")
     )
-    # dim_crime_flags maps the boolean source columns; we already cast
-    # arrest/domestic to SMALLINT for the additive fact measures. Convert
-    # back to boolean for the join.
+    # dim_crime_flags is keyed by the boolean source columns. Silver
+    # `arrest` / `domestic` can legitimately be NULL (cast_bool_yn returns
+    # NULL on garbage). We preserve that null through to the join so a
+    # null source -> dim_crime_flags(0) (the (NULL, NULL) reserved row)
+    # rather than silently collapsing to "No Arrest, Non-Domestic" which
+    # would lose the missing-data signal. The eqNullSafe join + dim
+    # row 0's (NULL, NULL) booleans give the correct mapping.
     crime_with_bool = crime.withColumn(
-        "_arrest_bool", F.col("is_arrest") == 1
-    ).withColumn("_domestic_bool", F.col("is_domestic") == 1)
+        "_arrest_bool",
+        F.when(F.col("arrest").isNull(), F.lit(None).cast("boolean"))
+        .when(F.col("arrest") == F.lit(True), F.lit(True))
+        .otherwise(F.lit(False)),
+    ).withColumn(
+        "_domestic_bool",
+        F.when(F.col("domestic").isNull(), F.lit(None).cast("boolean"))
+        .when(F.col("domestic") == F.lit(True), F.lit(True))
+        .otherwise(F.lit(False)),
+    )
     crime = (
         crime_with_bool.alias("f")
         .join(
             dim_crime_flags.alias("fl"),
-            (F.col("f._arrest_bool") == F.col("fl._flags_is_arrest"))
-            & (F.col("f._domestic_bool") == F.col("fl._flags_is_domestic")),
+            (F.col("f._arrest_bool").eqNullSafe(F.col("fl._flags_is_arrest")))
+            & (F.col("f._domestic_bool").eqNullSafe(F.col("fl._flags_is_domestic"))),
             how="left",
         )
         .withColumn(
