@@ -9,6 +9,7 @@ focuses the verification on the SQL itself — the high-risk part.
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 
 import psycopg
 import pytest
@@ -98,6 +99,7 @@ def test_scd2_case_a_new_natural_key_inserts_v1(clean_dw, pg_conn):
     assert rows[0]["iucr"] == "0820"
     assert rows[0]["is_current"] is True
     assert rows[0]["scd_version"] == 1
+    assert rows[0]["scd_start_date"] == date(1, 1, 1)
 
 
 # ---------------------------------------------------------------------------

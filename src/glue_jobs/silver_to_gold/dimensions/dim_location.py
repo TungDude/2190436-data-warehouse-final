@@ -36,9 +36,10 @@ NATURAL_KEY = ["community_area", "district", "ward", "beat"]
 TRACKED_COLS: list[str] = []
 
 # Attribute columns written to dw.dim_location alongside the natural key.
-# block / community_area_name are SCD1 attributes (overwrite-on-change) but
-# in V1 we only see them as part of the initial insert; no SCD1 update path
-# is needed until those columns can change.
+# block is intentionally left NULL in V1: the current natural key is
+# community_area/district/ward/beat, and many blocks can exist inside one such
+# key. Selecting an arbitrary block during dropDuplicates would make the dim
+# nondeterministic. community_area_name arrives with source 3.
 ATTRIBUTE_COLS = [
     "community_area",
     "district",
@@ -60,9 +61,10 @@ def load(
     # we leave it NULL on every row — the reserved-Unknown contract
     # absorbs missing values.
     df_new = (
-        crime.select(*NATURAL_KEY, "block")
-        .withColumn("community_area_name", F.lit(None).cast("string"))
+        crime.select(*NATURAL_KEY)
         .dropDuplicates(NATURAL_KEY)
+        .withColumn("block", F.lit(None).cast("string"))
+        .withColumn("community_area_name", F.lit(None).cast("string"))
         .select(*ATTRIBUTE_COLS)
     )
 

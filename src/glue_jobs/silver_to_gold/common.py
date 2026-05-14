@@ -6,9 +6,9 @@ that survives a Glue job retry without leaving SCD2 rows expired without
 a successor.
 
 All SQL execution against Postgres goes through psycopg v3, which the
-Glue job pulls in via ``--additional-python-modules psycopg[binary]``
-(set in ``terraform/silver_to_gold.tf``). Under pytest the same module
-is on the test harness's PATH (``requirements-dev.txt``).
+Glue job receives via the bundled deps zip configured in
+``terraform/silver_to_gold.tf``. Under pytest the same module is on the
+test harness's PATH (``requirements-dev.txt``).
 """
 
 from __future__ import annotations
@@ -188,10 +188,12 @@ def scd2_merge(
        * ``UPDATE target SET is_current=FALSE, scd_end_date=CURRENT_DATE
          FROM staging WHERE <natural_key match> AND target.is_current
          AND target.scd_hash <> staging.scd_hash``
-       * ``INSERT INTO target (...) SELECT s.*, CURRENT_DATE,
+       * ``INSERT INTO target (...) SELECT s.*, <effective_start>,
          '9999-12-31', TRUE, COALESCE(prev_max + 1, 1), s.scd_hash
          FROM staging s LEFT JOIN (SELECT NK, MAX(scd_version) FROM target
-         GROUP BY NK) prev_max ON ...``
+         GROUP BY NK) prev_max ON ...``. Initial versions start at
+         ``0001-01-01`` so historical facts can resolve their SCD2 FKs;
+         changed versions start at ``CURRENT_DATE``.
 
        The UPDATE runs first so the no-current-row invariant holds for
        every NK we're about to insert. The two statements share a
@@ -340,7 +342,10 @@ def _apply_scd2_sql(
         )
         SELECT
             {select_col_list},
-            CURRENT_DATE,
+            CASE
+                WHEN prev_max.max_version IS NULL THEN DATE '0001-01-01'
+                ELSE CURRENT_DATE
+            END,
             DATE '9999-12-31',
             TRUE,
             COALESCE(prev_max.max_version, 0) + 1,

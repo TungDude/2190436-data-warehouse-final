@@ -85,18 +85,29 @@ resource "null_resource" "build_silver_to_gold_deps" {
   }
 
   provisioner "local-exec" {
-    command = <<-EOT
-      set -euo pipefail
-      rm -rf "${local.silver_to_gold_deps_layer_root}"
-      mkdir -p "${local.silver_to_gold_deps_layer_root}"
-      pip install \
-        --target "${local.silver_to_gold_deps_layer_root}" \
-        --platform manylinux2014_x86_64 \
-        --python-version 3.11 \
-        --only-binary=:all: \
-        --no-compile \
-        --upgrade \
-        -r "${local.silver_to_gold_src_root}/requirements.txt"
+    interpreter = ["python", "-c"]
+    command     = <<-EOT
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+target = Path(${jsonencode(local.silver_to_gold_deps_layer_root)})
+requirements = Path(${jsonencode("${local.silver_to_gold_src_root}/requirements.txt")})
+
+shutil.rmtree(target, ignore_errors=True)
+target.mkdir(parents=True, exist_ok=True)
+
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install",
+    "--target", str(target),
+    "--platform", "manylinux2014_x86_64",
+    "--python-version", "3.11",
+    "--only-binary=:all:",
+    "--no-compile",
+    "--upgrade",
+    "-r", str(requirements),
+])
     EOT
   }
 }

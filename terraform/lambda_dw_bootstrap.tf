@@ -59,18 +59,30 @@ resource "null_resource" "build_dw_bootstrap_layer" {
   }
 
   provisioner "local-exec" {
-    command = <<-EOT
-      set -euo pipefail
-      rm -rf "${local.dw_bootstrap_layer_root}"
-      mkdir -p "${local.dw_bootstrap_layer_root}/python"
-      pip install \
-        --target "${local.dw_bootstrap_layer_root}/python" \
-        --platform manylinux2014_x86_64 \
-        --python-version 3.12 \
-        --only-binary=:all: \
-        --no-compile \
-        --upgrade \
-        -r "${local.dw_bootstrap_src_root}/requirements.txt"
+    interpreter = ["python", "-c"]
+    command     = <<-EOT
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+layer_root = Path(${jsonencode(local.dw_bootstrap_layer_root)})
+target = layer_root / "python"
+requirements = Path(${jsonencode("${local.dw_bootstrap_src_root}/requirements.txt")})
+
+shutil.rmtree(layer_root, ignore_errors=True)
+target.mkdir(parents=True, exist_ok=True)
+
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install",
+    "--target", str(target),
+    "--platform", "manylinux2014_x86_64",
+    "--python-version", "3.12",
+    "--only-binary=:all:",
+    "--no-compile",
+    "--upgrade",
+    "-r", str(requirements),
+])
     EOT
   }
 }
