@@ -66,3 +66,42 @@ output "glue_workflow_schedule_name" {
   description = "EventBridge Scheduler schedule name that starts the Glue Workflow."
   value       = aws_scheduler_schedule.daily_glue_workflow.name
 }
+
+# ---------------------------------------------------------------------------
+# Gold (RDS PostgreSQL) outputs
+# ---------------------------------------------------------------------------
+
+output "rds_endpoint" {
+  description = "DNS endpoint of the warehouse RDS instance."
+  value       = aws_db_instance.dw.address
+}
+
+output "rds_port" {
+  description = "TCP port of the warehouse RDS instance."
+  value       = aws_db_instance.dw.port
+}
+
+output "rds_database_name" {
+  description = "PostgreSQL database name created on the warehouse RDS instance."
+  value       = aws_db_instance.dw.db_name
+}
+
+output "rds_secret_arn" {
+  description = "ARN of the Secrets Manager record holding master credentials for the warehouse RDS instance."
+  value       = aws_secretsmanager_secret.rds_master.arn
+}
+
+output "glue_jdbc_connection_name" {
+  description = "Name of the AWS Glue JDBC Connection that targets the warehouse RDS instance."
+  value       = aws_glue_connection.dw.name
+}
+
+output "glue_silver_to_gold_dims_job_name" {
+  description = "Glue job name for the silver->gold dim loaders."
+  value       = aws_glue_job.silver_to_gold_dims.name
+}
+
+output "glue_silver_to_gold_facts_job_name" {
+  description = "Glue job name for the silver->gold fact loaders."
+  value       = aws_glue_job.silver_to_gold_facts.name
+}

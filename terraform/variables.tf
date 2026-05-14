@@ -218,3 +218,59 @@ variable "glue_supported_sources" {
     error_message = "glue_supported_sources must contain at least one source."
   }
 }
+
+# ---------------------------------------------------------------------------
+# Gold (RDS PostgreSQL) configuration
+# ---------------------------------------------------------------------------
+
+variable "rds_database_name" {
+  description = "PostgreSQL database name created on the RDS instance. The DDL bootstrap Lambda creates raw_stg / dw_staging / dw schemas inside this database."
+  type        = string
+  default     = "dw"
+}
+
+variable "rds_instance_class" {
+  description = "RDS instance class. db.t4g.micro is sufficient at project row counts; cost reference in docs/architecture.md §9."
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "rds_engine_version" {
+  description = "PostgreSQL engine version. Lecture material assumes Postgres 16+ for the modern UPSERT / generated identity syntax used in dw_schema.sql."
+  type        = string
+  default     = "16.4"
+}
+
+variable "rds_allocated_storage" {
+  description = "Allocated storage in GiB for the RDS instance. 20 is the minimum gp3 size and comfortably covers the dw.* schema for the project slice."
+  type        = number
+  default     = 20
+}
+
+variable "rds_backup_retention_days" {
+  description = "Number of days to retain automated RDS backups."
+  type        = number
+  default     = 7
+}
+
+variable "rds_deletion_protection" {
+  description = "Whether to enable RDS deletion protection. False during V1 so terraform destroy can tear down the dev environment cleanly; flip to true once the pipeline stabilises."
+  type        = bool
+  default     = false
+}
+
+# ---------------------------------------------------------------------------
+# Silver -> Gold Glue configuration
+# ---------------------------------------------------------------------------
+
+variable "glue_silver_to_gold_worker_type" {
+  description = "Glue worker type for the silver->gold dim/fact jobs."
+  type        = string
+  default     = "G.1X"
+}
+
+variable "glue_silver_to_gold_number_of_workers" {
+  description = "Number of Glue workers for the silver->gold dim/fact jobs. Minimum 2 for G.1X."
+  type        = number
+  default     = 2
+}

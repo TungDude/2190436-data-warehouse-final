@@ -1,38 +1,33 @@
 # Terraform Infrastructure
 
-The Terraform stack provisions the bronze ingest path **and** the bronze ->
-silver Glue ETL slice:
+The Terraform stack provisions the full bronze -> silver -> gold pipeline:
 
-- S3 raw data lake bucket (single bucket; `raw/`, `standardized/`, and
-  `glue/` prefixes coexist for cost and IAM simplicity).
-- Raw Chicago crime prefix: `raw/chicaho_crime/ingest_date=YYYY-MM-DD/`.
-- Lambda function that fetches Chicago crime CSV data, plus the daily 02:00
-  America/Chicago EventBridge Scheduler that invokes it.
-- Glue Data Catalog databases: `data_warehouse_final_bronze` and
-  `data_warehouse_final_silver`.
-- Two Glue Crawlers (one per zone) with `TableLevelConfiguration=3` so each
-  crawler registers **one logical table per source** (not one per
-  `ingest_date=...` partition).
-- Glue Job `data-warehouse-final-bronze-to-silver` (Glue 5.0, Spark 3.5)
-  parameterised by `--source`. Today only `chicago_crime` is implemented;
-  additional sources are added by appending to `var.glue_supported_sources`
-  and dropping a handler module under
-  `src/glue_jobs/bronze_to_silver/sources/`.
-- Glue Workflow that chains: bronze crawler -> per-source job runs ->
-  silver crawler.
-- EventBridge Scheduler that calls `glue:StartWorkflowRun` daily at 03:30
-  America/Chicago. We use EventBridge Scheduler (timezone-aware) rather
-  than Glue's built-in cron (UTC-only).
+- **Bronze ingest** — S3 raw data lake bucket; Lambda + EventBridge
+  Scheduler for daily Chicago Crime fetches.
+- **Silver Glue ETL** — Glue Catalog DBs, crawlers, per-source PySpark
+  jobs, workflow + triggers.
+- **Gold tier** — Amazon RDS for PostgreSQL 16 inside the default VPC; a
+  one-shot DDL bootstrap Lambda that applies `sql/dw_schema.sql` and
+  `sql/dw_seed.sql` to RDS at apply-time; AWS Glue JDBC Connection;
+  two silver -> gold PySpark Glue Jobs (`dims` then `facts`) chained
+  onto the existing workflow.
+
+The single S3 bucket carries every prefix (`raw/`, `standardized/`,
+`glue/scripts/`, `sql/`) for cost and IAM simplicity.
 
 File layout in this directory:
 
 | File | Holds |
 |---|---|
-| `main.tf` | provider, locals, account-identity data source |
-| `s3.tf` | bucket + bucket config + prefix markers (`raw/chicaho_crime/`, `standardized/`, `glue/scripts/`) |
-| `lambda_chicago_crime.tf` | bronze fetch Lambda, IAM, scheduler |
-| `glue.tf` | catalog DBs, IAM, log group, crawlers, job, workflow + triggers, EventBridge Scheduler |
-| `variables.tf`, `outputs.tf`, `terraform.tfvars.example` | inputs/outputs |
+| `main.tf` | provider, locals, required providers (aws + archive + null + random) |
+| `s3.tf` | bucket + bucket config + prefix markers |
+| `lambda_chicago_crime.tf` | bronze fetch Lambda + scheduler |
+| `glue.tf` | bronze + silver catalog DBs, IAM, log group, crawlers, bronze->silver job(s), workflow + triggers, EventBridge Scheduler |
+| `rds.tf` | RDS Postgres 16, Secrets Manager, db subnet group, Glue JDBC Connection, security groups |
+| `vpc_endpoints.tf` | S3 Gateway + Secrets Manager/Logs Interface endpoints so in-VPC Lambda + Glue can reach AWS APIs |
+| `lambda_dw_bootstrap.tf` | one-shot Lambda that applies SQL DDL to RDS, layer build for psycopg[binary] |
+| `silver_to_gold.tf` | silver->gold dims + facts Glue Jobs, workflow extension triggers |
+| `variables.tf`, `outputs.tf` | inputs/outputs |
 
 ## Local validation (no AWS apply)
 
@@ -94,8 +89,9 @@ WF=$(terraform -chdir=terraform output -raw glue_workflow_name)
 # 1. Kick the workflow.
 RUN_ID=$(aws glue start-workflow-run --name "$WF" --query 'RunId' --output text)
 
-# 2. Poll until COMPLETED. Expect ~5-10 minutes for the bronze crawler +
-#    one chicago_crime job + the silver crawler on a cold start.
+# 2. Poll until COMPLETED. Expect ~15-25 minutes on cold start: bronze
+#    crawler + per-source bronze->silver jobs + silver crawler +
+#    silver->gold dims + silver->gold facts.
 until [ "$(aws glue get-workflow-run --name "$WF" --run-id "$RUN_ID" \
   --query 'Run.Status' --output text)" = "COMPLETED" ]; do
   sleep 30
@@ -105,6 +101,15 @@ done
 
 # 3. Verify silver objects exist.
 aws s3 ls "s3://$(terraform -chdir=terraform output -raw raw_bucket_name)/$(terraform -chdir=terraform output -raw silver_prefix)/chicago_crime/" --recursive | head
+
+# 4. Verify gold rows in RDS (run from a host inside the VPC, or via a
+#    bastion / Session Manager port forward).
+psql -h "$(terraform -chdir=terraform output -raw rds_endpoint)" -U dw_admin -d dw \
+  -c "SELECT 'dim_date' tbl, COUNT(*) n FROM dw.dim_date
+      UNION ALL SELECT 'dim_time_of_day', COUNT(*) FROM dw.dim_time_of_day
+      UNION ALL SELECT 'dim_location', COUNT(*) FROM dw.dim_location
+      UNION ALL SELECT 'dim_crime_type', COUNT(*) FROM dw.dim_crime_type
+      UNION ALL SELECT 'fact_crime', COUNT(*) FROM dw.fact_crime;"
 ```
 
 If the workflow status is `ERROR` at any node, inspect the run graph:
