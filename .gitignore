@@ -1,8 +1,9 @@
 .agents/AGENTS.local.md
 .claude/CLAUDE.local.md
 
-# Nix
+# Nix / direnv
 .direnv/
+.envrc
 result
 result-*
 

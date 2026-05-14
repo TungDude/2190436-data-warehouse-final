@@ -45,8 +45,21 @@ def rename_columns_snake(df: DataFrame) -> DataFrame:
 
 
 def parse_chicago_timestamp(col: Column) -> Column:
-    """Parse Chicago Socrata's ``MM/dd/yyyy hh:mm:ss a`` strings to TIMESTAMP."""
-    return F.to_timestamp(col, "MM/dd/yyyy hh:mm:ss a")
+    """Parse Chicago crime date strings to TIMESTAMP, accepting both wire
+    formats the source can emit.
+
+    The Socrata CSV-export endpoint our Lambda fetches from returns ISO-8601
+    (``2019-01-01T00:00:00.000``). The City of Chicago portal's manual-download
+    CSV uses ``MM/dd/yyyy hh:mm:ss a`` (``06/01/2024 02:30:00 PM``). We try ISO
+    first because that is what production bronze actually contains; the legacy
+    format is kept as a fallback so older hand-curated fixtures still parse.
+    Returns NULL if neither format matches — silver triages malformed rows
+    into the ``_ingest_year = 9999`` sentinel partition.
+    """
+    return F.coalesce(
+        F.to_timestamp(col, "yyyy-MM-dd'T'HH:mm:ss.SSS"),
+        F.to_timestamp(col, "MM/dd/yyyy hh:mm:ss a"),
+    )
 
 
 def cast_bool_yn(col: Column) -> Column:

@@ -41,13 +41,25 @@ def test_rename_columns_snake(spark):
 
 
 def test_parse_chicago_timestamp(spark):
+    """Accept both the manual-portal ``MM/dd/yyyy hh:mm:ss a`` format and the
+    Socrata-CSV ``yyyy-MM-dd'T'HH:mm:ss.SSS`` format the Lambda actually
+    fetches. Production bronze contains the latter."""
     df = spark.createDataFrame(
-        [Row(raw="06/01/2024 02:30:00 PM"), Row(raw="01/02/2024 09:00:00 AM")]
+        [
+            Row(raw="06/01/2024 02:30:00 PM"),
+            Row(raw="01/02/2024 09:00:00 AM"),
+            Row(raw="2019-01-01T00:00:00.000"),
+            Row(raw="2024-04-23T15:41:34.000"),
+            Row(raw=""),
+        ]
     )
     parsed = df.withColumn("ts", common.parse_chicago_timestamp(F.col("raw")))
-    rows = sorted(parsed.collect(), key=lambda r: r.raw)
-    assert rows[0].ts == dt.datetime(2024, 1, 2, 9, 0, 0)
-    assert rows[1].ts == dt.datetime(2024, 6, 1, 14, 30, 0)
+    rows = {r.raw: r.ts for r in parsed.collect()}
+    assert rows["01/02/2024 09:00:00 AM"] == dt.datetime(2024, 1, 2, 9, 0, 0)
+    assert rows["06/01/2024 02:30:00 PM"] == dt.datetime(2024, 6, 1, 14, 30, 0)
+    assert rows["2019-01-01T00:00:00.000"] == dt.datetime(2019, 1, 1, 0, 0, 0)
+    assert rows["2024-04-23T15:41:34.000"] == dt.datetime(2024, 4, 23, 15, 41, 34)
+    assert rows[""] is None
 
 
 def test_cast_bool_yn(spark):

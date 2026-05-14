@@ -260,17 +260,22 @@ resource "aws_glue_crawler" "bronze" {
     }
   })
 
+  # CRAWL_NEW_FOLDERS_ONLY requires BOTH update_behavior and delete_behavior
+  # to be "LOG" — AWS Glue rejects the crawler creation otherwise
+  # (InvalidInputException: "The SchemaChangePolicy for 'Crawl new folders
+  # only' Amazon S3 target can have only LOG DeleteBehavior value and LOG
+  # UpdateBehavior value."). Schema drift in bronze is therefore observed via
+  # crawler logs, not auto-applied to the catalog — acceptable because bronze
+  # schemas are pinned by the upstream Lambda's CSV writer.
   schema_change_policy {
-    update_behavior = "UPDATE_IN_DATABASE"
+    update_behavior = "LOG"
     delete_behavior = "LOG"
   }
 
   # Bronze is append-only: each Lambda run lands one new
   # ingest_date=YYYY-MM-DD/ folder under raw/<source>/. CRAWL_NEW_FOLDERS_ONLY
   # makes each daily crawl a constant-cost operation regardless of historical
-  # backfill size. AWS Glue notes this requires schema_change_policy
-  # delete_behavior = "LOG" (set above) and treats update_behavior as
-  # informational; both are compatible with our config.
+  # backfill size.
   recrawl_policy {
     recrawl_behavior = "CRAWL_NEW_FOLDERS_ONLY"
   }
