@@ -39,6 +39,10 @@ VALUES (
 ON CONFLICT (date_key) DO NOTHING;
 
 -- dim_location(0) — "Unknown location"
+-- Note: the natural-key UNIQUE constraint (community_area, district, ward,
+-- beat, scd_start_date) treats multiple all-NULL rows as distinct in
+-- Postgres, so we rely on the PK conflict guard (location_key = 0) to keep
+-- this seed idempotent. Future Unknown-row inserts MUST keep the PK guard.
 INSERT INTO dw.dim_location (
     location_key, community_area, district, ward, beat, block,
     community_area_name, scd_start_date, scd_end_date, is_current,
