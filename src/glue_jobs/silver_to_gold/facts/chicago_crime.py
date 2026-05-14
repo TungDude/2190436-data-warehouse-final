@@ -104,10 +104,16 @@ def load(
         )
         .withColumn(
             "occurrence_time_key",
-            # After sentinel filtering this is always 0..23 and never falls
-            # to UNKNOWN (the .coalesce branch is dead in V1 but kept for
-            # the defensive-trim-fail-loud posture from CLAUDE.md).
-            F.coalesce(F.hour("date").cast("smallint"), F.lit(UNKNOWN_DIM_KEY).cast("smallint")),
+            # `date` is guaranteed non-NULL here (read_silver_table
+            # filters the sentinel partition), so F.hour returns 0..23
+            # and the coalesce branch is dead. Dropping the fallback
+            # because dim_time_of_day has NO Unknown row per
+            # dimensional-design.md §8.5 — hour 0 is "midnight", not
+            # "unknown", so a fallback would silently misroute. If
+            # silver ever stops triaging unparseable dates, the NULL
+            # would fail loud at the JDBC insert against the NOT NULL
+            # FK column, which is the desired posture.
+            F.hour("date").cast("smallint"),
         )
         .withColumn(
             "_report_date_key_raw",

@@ -575,9 +575,9 @@ def coalesce_to_seeded_date_key(
     broadcast left join — dim_date is ~5k rows so the broadcast cost is
     trivial against the ~1.75M-row fact table.
 
-    The ``raw_col`` column is dropped from the output. The helper is a
-    no-op when ``raw_col`` and ``out_col`` are the same name (it still
-    rewrites the column with the guarded value).
+    ``raw_col`` is dropped from the output when distinct from ``out_col``;
+    when they share a name, the column is rewritten in place with the
+    guarded value.
     """
     alias = f"_dd_{out_col}"
     valid = df_date_keys.select(F.col("date_key").alias(alias))
@@ -586,13 +586,12 @@ def coalesce_to_seeded_date_key(
         F.col(raw_col) == F.col(alias),
         how="left",
     )
-    return (
-        joined.withColumn(out_col, F.coalesce(F.col(alias), F.lit(unknown_key)))
-        .drop(alias)
-        .drop(raw_col)
-        if raw_col != out_col
-        else joined.withColumn(out_col, F.coalesce(F.col(alias), F.lit(unknown_key))).drop(alias)
-    )
+    guarded = joined.withColumn(
+        out_col, F.coalesce(F.col(alias), F.lit(unknown_key))
+    ).drop(alias)
+    if raw_col != out_col:
+        guarded = guarded.drop(raw_col)
+    return guarded
 
 
 __all__ = [
