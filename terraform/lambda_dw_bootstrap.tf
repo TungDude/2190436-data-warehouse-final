@@ -214,6 +214,11 @@ resource "aws_lambda_function" "dw_bootstrap" {
     aws_cloudwatch_log_group.dw_bootstrap,
     aws_iam_role_policy.dw_bootstrap,
     aws_iam_role_policy_attachment.dw_bootstrap_vpc,
+    # The Lambda has no AWS API egress without these endpoints — see
+    # terraform/vpc_endpoints.tf for the network rationale.
+    aws_vpc_endpoint.s3,
+    aws_vpc_endpoint.secretsmanager,
+    aws_vpc_endpoint.logs,
   ]
 
   tags = local.common_tags
