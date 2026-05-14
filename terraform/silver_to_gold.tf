@@ -11,13 +11,18 @@
 # (see terraform/glue.tf header comments on the bronze->silver split).
 #
 # Both jobs run inside the default VPC via aws_glue_connection.dw so
-# they can reach RDS for the SCD merges. psycopg[binary] is pulled in
-# via --additional-python-modules (Glue 5.0 feature) — Glue's stock
-# image does not ship psycopg.
+# they can reach RDS for the SCD merges. psycopg[binary] is shipped
+# **inside the libs.zip** (built via null_resource + pip --platform
+# manylinux2014_x86_64) rather than via --additional-python-modules:
+# Glue's pip resolver runs inside the customer VPC when the job has a
+# `connections` attachment, and our VPC has no NAT or PyPI mirror, so
+# pip would time out. Baking the wheel into the zip side-steps the
+# network dependency entirely.
 # ---------------------------------------------------------------------------
 
 locals {
-  silver_to_gold_src_root = "${path.module}/../src/glue_jobs/silver_to_gold"
+  silver_to_gold_src_root        = "${path.module}/../src/glue_jobs/silver_to_gold"
+  silver_to_gold_deps_layer_root = "${path.module}/.terraform/silver_to_gold_deps"
 }
 
 # ---------------------------------------------------------------------------
@@ -47,6 +52,7 @@ data "archive_file" "silver_to_gold_libs" {
   output_path = "${path.module}/.terraform/silver_to_gold_libs.zip"
   excludes = [
     "main.py",
+    "requirements.txt",
     "**/__pycache__",
     "**/__pycache__/**",
     "**/*.pyc",
@@ -59,6 +65,62 @@ resource "aws_s3_object" "silver_to_gold_libs" {
   key          = "${var.glue_scripts_prefix}/silver_to_gold/libs.zip"
   source       = data.archive_file.silver_to_gold_libs.output_path
   etag         = data.archive_file.silver_to_gold_libs.output_md5
+  content_type = "application/zip"
+
+  tags = local.common_tags
+}
+
+# ---------------------------------------------------------------------------
+# psycopg[binary] deps zip — bundled into --extra-py-files so the Glue job
+# can `import psycopg` without PyPI reachability from inside the VPC.
+#
+# Build target Python is 3.11 (Glue 5.0's worker Python). Build target
+# platform is manylinux2014_x86_64 (Glue's worker arch) so the wheel is
+# installable regardless of operator host OS.
+# ---------------------------------------------------------------------------
+
+resource "null_resource" "build_silver_to_gold_deps" {
+  triggers = {
+    requirements_md5 = filemd5("${local.silver_to_gold_src_root}/requirements.txt")
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -euo pipefail
+      rm -rf "${local.silver_to_gold_deps_layer_root}"
+      mkdir -p "${local.silver_to_gold_deps_layer_root}"
+      pip install \
+        --target "${local.silver_to_gold_deps_layer_root}" \
+        --platform manylinux2014_x86_64 \
+        --python-version 3.11 \
+        --only-binary=:all: \
+        --no-compile \
+        --upgrade \
+        -r "${local.silver_to_gold_src_root}/requirements.txt"
+    EOT
+  }
+}
+
+data "archive_file" "silver_to_gold_deps" {
+  depends_on = [null_resource.build_silver_to_gold_deps]
+
+  type        = "zip"
+  source_dir  = local.silver_to_gold_deps_layer_root
+  output_path = "${path.module}/.terraform/silver_to_gold_deps.zip"
+  excludes = [
+    "**/__pycache__",
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/*.dist-info/RECORD",
+  ]
+}
+
+resource "aws_s3_object" "silver_to_gold_deps" {
+  bucket       = aws_s3_bucket.raw.id
+  key          = "${var.glue_scripts_prefix}/silver_to_gold/deps.zip"
+  source       = data.archive_file.silver_to_gold_deps.output_path
+  etag         = data.archive_file.silver_to_gold_deps.output_base64sha256
   content_type = "application/zip"
 
   tags = local.common_tags
@@ -127,11 +189,15 @@ locals {
     "--silver_database"       = aws_glue_catalog_database.silver.name
     "--secret_arn"            = aws_secretsmanager_secret.rds_master.arn
     "--region"                = var.aws_region
-    "--extra-py-files"        = "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.silver_to_gold_libs.key}"
-    # Glue 5.0 pulls these from PyPI into the job's Python env at runtime.
-    # Pinning to the same version range as the DDL Lambda's requirements
-    # keeps driver behaviour consistent across the stack.
-    "--additional-python-modules" = "psycopg[binary]==3.2.*"
+    # Two zips on --extra-py-files: source code AND psycopg deps. Glue
+    # unpacks each onto sys.path so `import common` (source) and
+    # `import psycopg` (dep) both resolve. PyPI is unreachable from the
+    # job's VPC (no NAT, no CodeArtifact), so baking the wheel into the
+    # zip is the only path that works.
+    "--extra-py-files" = join(",", [
+      "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.silver_to_gold_libs.key}",
+      "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.silver_to_gold_deps.key}",
+    ])
   }
 }
 
@@ -166,6 +232,7 @@ resource "aws_glue_job" "silver_to_gold_dims" {
     aws_iam_role_policy_attachment.glue_managed,
     aws_vpc_endpoint.s3,
     aws_vpc_endpoint.secretsmanager,
+    aws_vpc_endpoint.logs,
   ]
 
   tags = local.common_tags
@@ -200,6 +267,7 @@ resource "aws_glue_job" "silver_to_gold_facts" {
     aws_iam_role_policy_attachment.glue_managed,
     aws_vpc_endpoint.s3,
     aws_vpc_endpoint.secretsmanager,
+    aws_vpc_endpoint.logs,
   ]
 
   tags = local.common_tags
