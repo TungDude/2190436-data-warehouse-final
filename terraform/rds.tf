@@ -28,6 +28,14 @@ data "aws_subnets" "default" {
     name   = "vpc-id"
     values = [data.aws_vpc.default.id]
   }
+  # `default-for-az = true` selects only the AWS-default subnets (one per AZ),
+  # excluding any custom subnets a future operator might add to the default
+  # VPC. Without this filter sort()[0] could shift unexpectedly and force an
+  # RDS replacement on the next plan.
+  filter {
+    name   = "default-for-az"
+    values = ["true"]
+  }
 }
 
 locals {
@@ -141,6 +149,8 @@ resource "aws_db_instance" "dw" {
   instance_class = var.rds_instance_class
 
   allocated_storage = var.rds_allocated_storage
+  # gp3 is valid at 20 GiB when iops/throughput are unset — RDS provisions
+  # the free 3000-IOPS / 125-MB/s baseline. Don't "fix" this back to gp2.
   storage_type      = "gp3"
   storage_encrypted = true
 
