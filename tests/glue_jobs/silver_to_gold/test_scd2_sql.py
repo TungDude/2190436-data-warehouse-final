@@ -103,19 +103,23 @@ def test_scd2_case_a_new_natural_key_inserts_v1(clean_dw, pg_conn):
 
 
 # ---------------------------------------------------------------------------
-# Case B — same natural key, unchanged hash → no-op
+# Case B — empty staging is a no-op (re-run with nothing to merge)
 # ---------------------------------------------------------------------------
 
 
-def test_scd2_case_b_unchanged_hash_is_noop(clean_dw, pg_conn):
+def test_scd2_case_b_empty_staging_is_noop(clean_dw, pg_conn):
+    """After an initial successful load, re-running the merge with an
+    empty staging table must NOT touch any existing rows.
+
+    The unchanged-hash-with-row-in-staging case is covered separately by
+    ``test_scd2_unchanged_hash_in_staging_is_rejected_by_insert``.
+    """
     _create_dim_crime_type_staging(pg_conn)
-    same_hash = _hash("THEFT", "Under $500", "06")
     _insert_into_staging(
         pg_conn,
         "dw_staging.scd2_dim_crime_type_inflight",
-        [("0820", "THEFT", "Under $500", "06", same_hash)],
+        [("0820", "THEFT", "Under $500", "06", _hash("THEFT", "Under $500", "06"))],
     )
-    # First merge: inserts v1.
     common._apply_scd2_sql(
         jdbc_props=clean_dw,
         target_table="dw.dim_crime_type",
@@ -124,18 +128,7 @@ def test_scd2_case_b_unchanged_hash_is_noop(clean_dw, pg_conn):
         insert_cols=["iucr", "primary_type", "description", "fbi_code"],
     )
 
-    # Second merge with the same hash row in staging — should not insert
-    # a v2 because the UPDATE's "hash differs" predicate filters it out;
-    # but the INSERT will still try to add a new row! Let me think...
-    #
-    # Looking at the INSERT SQL: it has no WHERE clause filtering on
-    # hash. It blindly inserts every row from staging. The expectation in
-    # production is that the Spark classifier upstream pre-filters
-    # unchanged rows so they never land in staging. We replicate that
-    # contract here: only "changed" rows should be in staging.
-
-    # Truncate and put a DIFFERENT row in staging to verify the no-op
-    # path when the only candidate has an unchanged hash.
+    # Empty staging — re-run must be a no-op.
     with pg_conn.cursor() as cur:
         cur.execute("TRUNCATE dw_staging.scd2_dim_crime_type_inflight")
     pg_conn.commit()
@@ -157,6 +150,7 @@ def test_scd2_case_b_unchanged_hash_is_noop(clean_dw, pg_conn):
     ) as conn:
         rows = _read_dim_crime_type(conn)
     assert len(rows) == 1  # still just v1
+    assert rows[0]["is_current"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -329,3 +323,97 @@ def test_scd2_case_d_third_version_preserves_prior_history(clean_dw, pg_conn):
     assert versions == [(1, False), (2, False), (3, True)]
     # v1 is untouched (was already expired)
     assert rows[0]["description"] == "Under $300"
+
+
+# ---------------------------------------------------------------------------
+# Reserved Unknown row protection — a NULL-NK stage row must NOT expire
+# the seeded dim_location(0) Unknown row, even though the seed's all-NULL
+# NK would IS-NOT-DISTINCT-FROM match it.
+# ---------------------------------------------------------------------------
+
+
+def _create_dim_location_staging(conn: psycopg.Connection) -> None:
+    """Create the SCD2 staging table for dim_location. Column types
+    mirror dw.dim_location in sql/dw_schema.sql §8.3.3."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE dw_staging.scd2_dim_location_inflight (
+                community_area       SMALLINT,
+                district             TEXT,
+                ward                 SMALLINT,
+                beat                 TEXT,
+                block                TEXT,
+                community_area_name  TEXT,
+                scd_hash             BYTEA
+            )
+            """
+        )
+    conn.commit()
+
+
+def test_scd2_null_nk_stage_row_does_not_expire_reserved_unknown(clean_dw, pg_conn):
+    """Defense-in-depth for dimensional-design.md §8.5: a future loader
+    bug that stages an all-NULL natural-key row must NEVER expire the
+    seeded ``dim_location(0)`` reserved Unknown row.
+
+    Without the ``scd_start_date <> '0001-01-01'`` guard in
+    ``_apply_scd2_sql``, the UPDATE's ``IS NOT DISTINCT FROM`` predicate
+    (NULL=NULL semantics) would match the seed and flip its
+    ``is_current=FALSE``, breaking the Unknown-FK contract for every
+    fact load.
+    """
+    _create_dim_location_staging(pg_conn)
+
+    # Snapshot the seeded reserved row.
+    with pg_conn.cursor() as cur:
+        cur.execute(
+            "SELECT location_key, is_current, scd_version FROM dw.dim_location "
+            "WHERE location_key = 0"
+        )
+        before = cur.fetchone()
+    assert before == (0, True, 1), "seed precondition: dim_location(0) is current"
+
+    # Stage a deliberate all-NULL NK row — represents a buggy upstream.
+    with pg_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO dw_staging.scd2_dim_location_inflight "
+            "(community_area, district, ward, beat, block, community_area_name, scd_hash) "
+            "VALUES (NULL, NULL, NULL, NULL, NULL, NULL, %s)",
+            (b"\x01" * 32,),  # any hash != reserved row's hash
+        )
+    pg_conn.commit()
+
+    common._apply_scd2_sql(
+        jdbc_props=clean_dw,
+        target_table="dw.dim_location",
+        staging_table="dw_staging.scd2_dim_location_inflight",
+        natural_key=["community_area", "district", "ward", "beat"],
+        insert_cols=[
+            "community_area",
+            "district",
+            "ward",
+            "beat",
+            "block",
+            "community_area_name",
+        ],
+    )
+
+    # Reserved row untouched.
+    with pg_conn.cursor() as cur:
+        cur.execute(
+            "SELECT location_key, is_current, scd_version FROM dw.dim_location "
+            "WHERE location_key = 0"
+        )
+        after = cur.fetchone()
+    assert after == before, "reserved Unknown row must not be expired"
+
+    # And the null-NK stage row must NOT have produced a new dim row.
+    with pg_conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM dw.dim_location "
+            "WHERE community_area IS NULL AND district IS NULL "
+            "  AND ward IS NULL AND beat IS NULL AND location_key <> 0"
+        )
+        rogue_count = cur.fetchone()[0]
+    assert rogue_count == 0, "null-NK stage row must not insert a new current row"

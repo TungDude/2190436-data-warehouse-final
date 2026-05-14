@@ -50,23 +50,47 @@ ATTRIBUTE_COLS = [
 ]
 
 
+def build_dim_rows(crime: DataFrame) -> DataFrame:
+    """Build the distinct dim_location source rows from silver chicago_crime.
+
+    Reserved-Unknown contract (docs/dimensional-design.md §8.5): any
+    silver row with a partial-null natural key MUST route to
+    ``location_key=0`` at fact load, not become its own dim row.
+    Allowing a NULL-NK tuple to land in the dim would make
+    :func:`common.resolve_scd2_fk_asof` match facts to it via
+    ``eqNullSafe`` instead of falling to the reserved Unknown
+    surrogate, corrupting analytics on missing-location incidents.
+    So we drop them at source.
+
+    ``block`` and ``community_area_name`` are force-NULL'd post-dedup
+    so a re-run produces a deterministic dim (block has many values per
+    NK in silver; picking one arbitrarily would churn the hash on every
+    load).
+
+    Extracted from :func:`load` so it can be unit-tested without a
+    Postgres connection.
+    """
+    nk_not_null = F.lit(True)
+    for nk in NATURAL_KEY:
+        nk_not_null = nk_not_null & F.col(nk).isNotNull()
+
+    return (
+        crime.filter(nk_not_null)
+        .select(*NATURAL_KEY)
+        .dropDuplicates(NATURAL_KEY)
+        .withColumn("block", F.lit(None).cast("string"))
+        .withColumn("community_area_name", F.lit(None).cast("string"))
+        .select(*ATTRIBUTE_COLS)
+    )
+
+
 def load(
     spark: SparkSession,
     jdbc_props: dict[str, str],
     silver_database: str,
 ) -> dict[str, int]:
     crime = read_silver_table(spark, silver_database, "chicago_crime")
-
-    # community_area_name comes from source 3 (not yet ingested). For V1
-    # we leave it NULL on every row — the reserved-Unknown contract
-    # absorbs missing values.
-    df_new = (
-        crime.select(*NATURAL_KEY)
-        .dropDuplicates(NATURAL_KEY)
-        .withColumn("block", F.lit(None).cast("string"))
-        .withColumn("community_area_name", F.lit(None).cast("string"))
-        .select(*ATTRIBUTE_COLS)
-    )
+    df_new = build_dim_rows(crime)
 
     LOGGER.info("dim_location: %d distinct natural keys", df_new.count())
 

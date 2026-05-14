@@ -131,7 +131,7 @@ resource "aws_s3_object" "silver_to_gold_deps" {
   bucket       = aws_s3_bucket.raw.id
   key          = "${var.glue_scripts_prefix}/silver_to_gold/deps.zip"
   source       = data.archive_file.silver_to_gold_deps.output_path
-  etag         = data.archive_file.silver_to_gold_deps.output_base64sha256
+  etag         = data.archive_file.silver_to_gold_deps.output_md5
   content_type = "application/zip"
 
   tags = local.common_tags

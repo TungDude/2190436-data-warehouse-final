@@ -222,12 +222,15 @@ def scd2_merge(
         .select(*natural_key, F.col("scd_hash").alias("scd_hash_current"))
     )
 
-    # Step 3: classify.
+    # Step 3: classify. Cache `joined` (not the filtered df_to_merge)
+    # because the three count() calls and the downstream JDBC write all
+    # derive from `joined` — caching it once avoids re-running the JDBC
+    # read of df_current four times.
     joined = df_new_hashed.alias("n").join(
         df_current.alias("c"),
         on=[F.col(f"n.{k}").eqNullSafe(F.col(f"c.{k}")) for k in natural_key],
         how="left",
-    )
+    ).cache()
     new_mask = F.col("c.scd_hash_current").isNull()
     changed_mask = (~new_mask) & (
         F.col("n.scd_hash") != F.col("c.scd_hash_current")
@@ -237,8 +240,6 @@ def scd2_merge(
         *[F.col(f"n.{c}") for c in insert_cols + ["scd_hash"]]
     )
 
-    # Caching avoids re-running the JDBC read in the count() calls below.
-    df_to_merge = df_to_merge.cache()
     counts = {
         "new": joined.filter(new_mask).count(),
         "changed": joined.filter(changed_mask).count(),
@@ -250,7 +251,7 @@ def scd2_merge(
             "scd2_merge %s: no new/changed rows, skipping driver SQL",
             target_table,
         )
-        df_to_merge.unpersist()
+        joined.unpersist()
         return counts
 
     # Step 4: write staging.
@@ -278,7 +279,7 @@ def scd2_merge(
         insert_cols=insert_cols,
     )
 
-    df_to_merge.unpersist()
+    joined.unpersist()
     return counts
 
 
@@ -294,8 +295,17 @@ def _apply_scd2_sql(
 
     Identifier safety: ``target_table`` and ``staging_table`` are built
     by the caller (the loader module) from in-source constants, never
-    from user input, so SQL injection isn't a vector. We still wrap them
-    in ``psycopg.sql.Identifier`` for correctness.
+    from user input, so SQL injection isn't a vector. f-string
+    interpolation is therefore safe here.
+
+    Reserved Unknown rows (``dimensional-design.md`` §8.5) are protected
+    by the ``s.<nk> IS NOT NULL`` predicate on both the UPDATE and the
+    INSERT. ``IS NOT DISTINCT FROM`` matches NULL=NULL, so without that
+    predicate a NULL-natural-key stage row would expire the seeded
+    ``dim_location(0)`` (all-NULL NK) and insert a sibling current row
+    next to it, breaking the Unknown contract for every fact join. The
+    per-loader filter (e.g. ``dim_location.build_dim_rows``) drops
+    null-NK rows at source; this SQL guard is defense-in-depth.
     """
     nk_join = " AND ".join(
         f"t.{k} IS NOT DISTINCT FROM s.{k}" for k in natural_key
@@ -303,6 +313,10 @@ def _apply_scd2_sql(
     nk_group = ", ".join(natural_key)
     insert_col_list = ", ".join(insert_cols)
     select_col_list = ", ".join(f"s.{c}" for c in insert_cols)
+    # All NK cols must be non-null for a stage row to be allowed into
+    # the SCD2 merge. Belt-and-braces with the per-loader filter
+    # (e.g. dim_location.load drops null community_area at source).
+    nk_all_not_null = " AND ".join(f"s.{k} IS NOT NULL" for k in natural_key)
 
     update_sql = f"""
         UPDATE {target_table} AS t
@@ -311,6 +325,7 @@ def _apply_scd2_sql(
           FROM {staging_table} AS s
          WHERE t.is_current = TRUE
            AND t.scd_hash IS DISTINCT FROM s.scd_hash
+           AND {nk_all_not_null}
            AND {nk_join}
     """
 
@@ -357,13 +372,14 @@ def _apply_scd2_sql(
                GROUP BY {nk_group}
           ) AS prev_max
             ON {" AND ".join(f"prev_max.{k} IS NOT DISTINCT FROM s.{k}" for k in natural_key)}
-         WHERE NOT EXISTS (
-             SELECT 1
-               FROM {target_table} AS cur
-              WHERE cur.is_current = TRUE
-                AND cur.scd_hash IS NOT DISTINCT FROM s.scd_hash
-                AND {nk_match_current}
-         )
+         WHERE {nk_all_not_null}
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM {target_table} AS cur
+                WHERE cur.is_current = TRUE
+                  AND cur.scd_hash IS NOT DISTINCT FROM s.scd_hash
+                  AND {nk_match_current}
+           )
     """
 
     with _psycopg_connect(jdbc_props) as conn:
@@ -543,9 +559,46 @@ def coerce_columns_in_order(
     return df.select(*list(cols))
 
 
+def coalesce_to_seeded_date_key(
+    df: DataFrame,
+    df_date_keys: DataFrame,
+    *,
+    raw_col: str,
+    out_col: str,
+    unknown_key: int = 0,
+) -> DataFrame:
+    """Map a computed YYYYMMDD smart key to the seeded dim_date range.
+
+    If ``raw_col``'s value exists in ``df_date_keys.date_key``, it passes
+    through to ``out_col``. Otherwise ``out_col`` falls to ``unknown_key``
+    (dim_date(0) per dimensional-design.md §8.5). Implemented as a
+    broadcast left join — dim_date is ~5k rows so the broadcast cost is
+    trivial against the ~1.75M-row fact table.
+
+    The ``raw_col`` column is dropped from the output. The helper is a
+    no-op when ``raw_col`` and ``out_col`` are the same name (it still
+    rewrites the column with the guarded value).
+    """
+    alias = f"_dd_{out_col}"
+    valid = df_date_keys.select(F.col("date_key").alias(alias))
+    joined = df.join(
+        F.broadcast(valid),
+        F.col(raw_col) == F.col(alias),
+        how="left",
+    )
+    return (
+        joined.withColumn(out_col, F.coalesce(F.col(alias), F.lit(unknown_key)))
+        .drop(alias)
+        .drop(raw_col)
+        if raw_col != out_col
+        else joined.withColumn(out_col, F.coalesce(F.col(alias), F.lit(unknown_key))).drop(alias)
+    )
+
+
 __all__ = [
     "SENTINEL_INGEST_YEAR",
     "build_upsert_sql",
+    "coalesce_to_seeded_date_key",
     "coerce_columns_in_order",
     "compute_scd_hash",
     "fact_upsert",

@@ -21,6 +21,7 @@ from pyspark.sql import functions as F
 
 try:  # pragma: no cover
     from common import (
+        coalesce_to_seeded_date_key,
         fact_upsert,
         jdbc_read_table,
         read_silver_table,
@@ -28,6 +29,7 @@ try:  # pragma: no cover
     )
 except ImportError:  # pragma: no cover
     from ..common import (
+        coalesce_to_seeded_date_key,
         fact_upsert,
         jdbc_read_table,
         read_silver_table,
@@ -94,7 +96,7 @@ def load(
     crime = (
         crime.withColumn("occurrence_date", F.to_date("date"))
         .withColumn(
-            "occurrence_date_key",
+            "_occurrence_date_key_raw",
             F.coalesce(
                 (F.year("date") * 10000 + F.month("date") * 100 + F.dayofmonth("date")).cast("int"),
                 F.lit(UNKNOWN_DIM_KEY),
@@ -108,7 +110,7 @@ def load(
             F.coalesce(F.hour("date").cast("smallint"), F.lit(UNKNOWN_DIM_KEY).cast("smallint")),
         )
         .withColumn(
-            "report_date_key",
+            "_report_date_key_raw",
             F.coalesce(
                 (F.year("updated_on") * 10000 + F.month("updated_on") * 100 + F.dayofmonth("updated_on")).cast("int"),
                 F.lit(UNKNOWN_DIM_KEY),
@@ -136,6 +138,32 @@ def load(
         )
         .withColumn("temperature_celsius", F.lit(None).cast("decimal(5,2)"))
         .withColumn("precipitation_mm", F.lit(None).cast("decimal(6,2)"))
+    )
+
+    # ------------------------------------------------------------------
+    # dim_date membership guard: any computed YYYYMMDD that is NOT in the
+    # seeded dim_date range (today 2018..2030 per sql/dw_seed.sql §2)
+    # falls to date_key=0 instead of failing the downstream FK insert.
+    # silver-to-gold-plan.md §7 flagged this as a known risk; the guard
+    # closes it so post-2030 updated_on or pre-2018 historical rows load
+    # cleanly with `occurrence_date_key=0` / `report_date_key=0`.
+    # ------------------------------------------------------------------
+    dim_date_keys = jdbc_read_table(spark, jdbc_props, "dw.dim_date").select(
+        "date_key"
+    )
+    crime = coalesce_to_seeded_date_key(
+        crime,
+        dim_date_keys,
+        raw_col="_occurrence_date_key_raw",
+        out_col="occurrence_date_key",
+        unknown_key=UNKNOWN_DIM_KEY,
+    )
+    crime = coalesce_to_seeded_date_key(
+        crime,
+        dim_date_keys,
+        raw_col="_report_date_key_raw",
+        out_col="report_date_key",
+        unknown_key=UNKNOWN_DIM_KEY,
     )
 
     # ------------------------------------------------------------------
