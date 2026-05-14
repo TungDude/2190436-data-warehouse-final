@@ -360,8 +360,33 @@ def _apply_scd2_sql(
 
 
 # ---------------------------------------------------------------------------
-# SCD1 upsert
+# SCD1 / fact upsert
 # ---------------------------------------------------------------------------
+
+
+def build_upsert_sql(
+    *,
+    target_table: str,
+    staging_table: str,
+    all_cols: list[str],
+    natural_key: list[str],
+    update_cols: list[str],
+) -> str:
+    """Build the INSERT … ON CONFLICT DO UPDATE statement used by SCD1 + fact upserts.
+
+    Extracted so the same SQL string is exercised by production code AND
+    by the Postgres-backed tests (which pre-populate the staging table
+    via psycopg rather than Spark JDBC). Drifting the two would let SQL
+    bugs slip past the tests.
+    """
+    col_list = ", ".join(all_cols)
+    set_list = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_cols)
+    conflict_target = ", ".join(natural_key)
+    return f"""
+        INSERT INTO {target_table} ({col_list})
+        SELECT {col_list} FROM {staging_table}
+        ON CONFLICT ({conflict_target}) DO UPDATE SET {set_list}
+    """
 
 
 def scd1_upsert(
@@ -391,15 +416,13 @@ def scd1_upsert(
         .save()
     )
 
-    col_list = ", ".join(df_new.columns)
-    set_list = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_cols)
-    conflict_target = ", ".join(natural_key)
-
-    upsert_sql = f"""
-        INSERT INTO {target_table} ({col_list})
-        SELECT {col_list} FROM {staging_table}
-        ON CONFLICT ({conflict_target}) DO UPDATE SET {set_list}
-    """
+    upsert_sql = build_upsert_sql(
+        target_table=target_table,
+        staging_table=staging_table,
+        all_cols=list(df_new.columns),
+        natural_key=natural_key,
+        update_cols=update_cols,
+    )
 
     with _psycopg_connect(jdbc_props) as conn:
         with conn.cursor() as cur:
@@ -503,6 +526,7 @@ def coerce_columns_in_order(
 
 __all__ = [
     "SENTINEL_INGEST_YEAR",
+    "build_upsert_sql",
     "coerce_columns_in_order",
     "compute_scd_hash",
     "fact_upsert",

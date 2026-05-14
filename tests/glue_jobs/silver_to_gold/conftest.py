@@ -24,7 +24,38 @@ from pathlib import Path
 
 import psycopg
 import pytest
-from testcontainers.postgres import PostgresContainer
+
+# testcontainers + Docker are required for the Postgres-backed tests. We
+# gracefully degrade if either is missing: tests that request the
+# postgres_container fixture skip with a clear message; Spark-only tests
+# in test_common.py keep working.
+try:
+    from testcontainers.postgres import PostgresContainer
+    _TC_AVAILABLE = True
+except ImportError:  # pragma: no cover - depends on host env
+    PostgresContainer = None  # type: ignore[assignment]
+    _TC_AVAILABLE = False
+
+
+def _docker_available() -> bool:
+    if not _TC_AVAILABLE:
+        return False
+    try:
+        import docker  # noqa: PLC0415
+    except ImportError:
+        return False
+    try:
+        docker.from_env().ping()
+        return True
+    except Exception:  # noqa: BLE001 - any docker-side error means unavailable
+        return False
+
+
+_REQUIRES_PG_REASON = (
+    "Postgres-backed silver->gold tests need testcontainers + a reachable "
+    "Docker daemon. Install with `pip install -r requirements-dev.txt` and "
+    "ensure Docker is running."
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -34,7 +65,13 @@ SEED_SQL = REPO_ROOT / "sql" / "dw_seed.sql"
 
 @pytest.fixture(scope="session")
 def postgres_container():
-    """Session-scoped Postgres 16 container, initialised with dw_schema + dw_seed."""
+    """Session-scoped Postgres 16 container, initialised with dw_schema + dw_seed.
+
+    Skips at fixture level if Docker / testcontainers aren't available so
+    Spark-only tests in test_common.py keep running on Docker-less hosts.
+    """
+    if not _docker_available():
+        pytest.skip(_REQUIRES_PG_REASON)
     container = PostgresContainer("postgres:16", username="test", password="test", dbname="dw")
     container.start()
     try:

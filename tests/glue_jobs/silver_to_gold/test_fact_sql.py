@@ -86,14 +86,19 @@ def _stage_row(conn: psycopg.Connection, **overrides) -> None:
 
 
 def _apply_fact_upsert(jdbc_props):
-    """Run the same INSERT ... ON CONFLICT DO UPDATE that fact_upsert issues."""
-    col_list = ", ".join(FACT_COLS)
-    update_cols = [c for c in FACT_COLS if c != "crime_id"]
-    set_list = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_cols)
-    sql = (
-        f"INSERT INTO dw.fact_crime ({col_list}) "
-        f"SELECT {col_list} FROM dw_staging.fact_crime_inflight "
-        f"ON CONFLICT (crime_id) DO UPDATE SET {set_list}"
+    """Run the same INSERT ... ON CONFLICT DO UPDATE that fact_upsert issues.
+
+    Uses common.build_upsert_sql so test and production share one SQL
+    generator; drift between the two would otherwise let bugs slip past.
+    """
+    from glue_jobs.silver_to_gold import common
+
+    sql = common.build_upsert_sql(
+        target_table="dw.fact_crime",
+        staging_table="dw_staging.fact_crime_inflight",
+        all_cols=FACT_COLS,
+        natural_key=["crime_id"],
+        update_cols=[c for c in FACT_COLS if c != "crime_id"],
     )
     with psycopg.connect(
         host=jdbc_props["host"],
@@ -223,6 +228,44 @@ def test_fact_upsert_resolves_null_fks_to_unknown_surrogates(clean_dw, pg_conn):
     )
     _apply_fact_upsert(clean_dw)
     assert _count_fact_crime(clean_dw) == 1
+
+
+def test_fact_upsert_with_dim_date_unknown_inserts_cleanly(clean_dw, pg_conn):
+    """A fact whose occurrence_date_key=0 (Unknown date — pre-2018 or
+    unparseable) must insert cleanly against dim_date(0), not be dropped.
+
+    This guards the documented "1990 occurrence -> dim_date_key=0"
+    behaviour from Track 4's risk review (the prior plan's claim that
+    1990 resolves to a valid dim_date is wrong; the loader falls to
+    dim_date(0) when the smart key is outside the seeded range, which
+    in practice happens for any year < 2018).
+    """
+    _create_fact_staging(pg_conn)
+    _stage_row(
+        pg_conn,
+        crime_id=400,
+        occurrence_date_key=0,
+        report_date_key=0,
+    )
+    _apply_fact_upsert(clean_dw)
+
+    with psycopg.connect(
+        host=clean_dw["host"],
+        port=int(clean_dw["port"]),
+        dbname=clean_dw["dbname"],
+        user=clean_dw["user"],
+        password=clean_dw["password"],
+    ) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT dd.day_name "
+                "  FROM dw.fact_crime fc "
+                "  JOIN dw.dim_date dd ON dd.date_key = fc.occurrence_date_key "
+                " WHERE fc.crime_id = 400"
+            )
+            row = cur.fetchone()
+    assert row is not None
+    assert row[0] == "Unknown"  # the dim_date(0) Unknown row's day_name
 
 
 def test_fact_crime_fact_cols_order_matches_ddl(clean_dw, pg_conn):
