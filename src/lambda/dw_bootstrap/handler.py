@@ -1,12 +1,12 @@
-"""One-shot DDL bootstrap Lambda for the warehouse RDS instance.
+"""DDL bootstrap + table-count utility Lambda for the warehouse RDS instance.
 
-Invoked by Terraform via aws_lambda_invocation when the SQL files change
-(filemd5 trigger). Reads dw_schema.sql and dw_seed.sql from S3 and applies
-them to RDS in two separate transactions: schema first, then seed.
+Action dispatch on ``event["action"]``:
 
-Both SQL scripts are idempotent (CREATE ... IF NOT EXISTS and
-INSERT ... ON CONFLICT DO NOTHING) so re-invocations are safe and produce
-no net change after the first successful run.
+* ``"apply"`` (default) - apply ``dw_schema.sql`` then ``dw_seed.sql`` from S3.
+  Used by Terraform via aws_lambda_invocation when the SQL files change.
+  Idempotent: CREATE ... IF NOT EXISTS + INSERT ... ON CONFLICT DO NOTHING.
+* ``"verify"`` - SELECT count(*) per dw.* table, returns a row-count map.
+  Used post-ETL to confirm dimension/fact loads landed.
 """
 
 from __future__ import annotations
@@ -25,24 +25,32 @@ LOGGER.setLevel(logging.INFO)
 S3_CLIENT = boto3.client("s3")
 SECRETS_CLIENT = boto3.client("secretsmanager")
 
+DW_TABLES = (
+    "dim_date",
+    "dim_time_of_day",
+    "dim_location",
+    "dim_crime_type",
+    "dim_weather",
+    "dim_crime_flags",
+    "dim_arrestee",
+    "fact_crime",
+    "fact_arrest",
+    "bridge_arrest_charge",
+)
+
 
 def lambda_handler(event, context):  # noqa: ARG001
-    """Run the schema and seed SQL files against the warehouse RDS instance.
+    action = (event or {}).get("action", "apply")
+    if action == "apply":
+        return _apply(_conn_kwargs())
+    if action == "verify":
+        return _verify(_conn_kwargs())
+    raise RuntimeError(f"Unknown action: {action!r}")
 
-    Returns a JSON-serialisable dict with elapsed milliseconds for each
-    script. Raises on failure so Terraform's aws_lambda_invocation surfaces
-    the error in the apply log.
-    """
-    secret_arn = _require_env("SECRET_ARN")
-    bucket = _require_env("BUCKET")
-    schema_key = _require_env("SCHEMA_KEY")
-    seed_key = _require_env("SEED_KEY")
 
-    schema_sql = _fetch_s3_text(bucket, schema_key)
-    seed_sql = _fetch_s3_text(bucket, seed_key)
-    creds = _fetch_db_credentials(secret_arn)
-
-    conn_kwargs = {
+def _conn_kwargs() -> dict:
+    creds = _fetch_db_credentials(_require_env("SECRET_ARN"))
+    return {
         "host": creds["host"],
         "port": int(creds["port"]),
         "dbname": creds["dbname"],
@@ -50,6 +58,12 @@ def lambda_handler(event, context):  # noqa: ARG001
         "password": creds["password"],
         "connect_timeout": 15,
     }
+
+
+def _apply(conn_kwargs: dict) -> dict:
+    bucket = _require_env("BUCKET")
+    schema_sql = _fetch_s3_text(bucket, _require_env("SCHEMA_KEY"))
+    seed_sql = _fetch_s3_text(bucket, _require_env("SEED_KEY"))
 
     schema_ms = _run_sql_file(conn_kwargs, schema_sql, label="schema")
     seed_ms = _run_sql_file(conn_kwargs, seed_sql, label="seed")
@@ -62,6 +76,18 @@ def lambda_handler(event, context):  # noqa: ARG001
         "seed_bytes": len(seed_sql),
     }
     LOGGER.info("dw_bootstrap complete: %s", json.dumps(result))
+    return result
+
+
+def _verify(conn_kwargs: dict) -> dict:
+    counts: dict[str, int] = {}
+    with psycopg.connect(**conn_kwargs) as conn:
+        with conn.cursor() as cur:
+            for table in DW_TABLES:
+                cur.execute(f"SELECT count(*) FROM dw.{table}")
+                counts[table] = cur.fetchone()[0]
+    result = {"status": "ok", "counts": counts}
+    LOGGER.info("dw_verify complete: %s", json.dumps(result))
     return result
 
 

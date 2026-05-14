@@ -213,10 +213,19 @@ def scd2_merge(
     )
 
     # Step 2: current rows from target.
+    # pushDownPredicate=false / pushDownAggregate=false: Glue 5.0 ships
+    # a wrapped Postgres JDBC connector (GlueSparkConnector-PostgreSQL-1.0.jar)
+    # whose pushdown SQL generation emits invalid syntax for our SCD2
+    # reads (literal "[" in the WHERE clause -> "syntax error at or near '['"
+    # at position 183). Keeping the filter in Spark makes the JDBC query
+    # a plain "SELECT * FROM dw.dim_location" which the wrapper handles
+    # correctly.
     df_current = (
         spark.read.format("jdbc")
         .options(**_spark_jdbc_options(jdbc_props))
         .option("dbtable", target_table)
+        .option("pushDownPredicate", "false")
+        .option("pushDownAggregate", "false")
         .load()
         .filter(F.col("is_current") == F.lit(True))
         .select(*natural_key, F.col("scd_hash").alias("scd_hash_current"))

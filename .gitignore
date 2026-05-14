@@ -19,6 +19,7 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+tfplan.bin
 
 # Python / PySpark
 __pycache__/

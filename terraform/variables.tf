@@ -238,7 +238,7 @@ variable "rds_instance_class" {
 variable "rds_engine_version" {
   description = "PostgreSQL engine version. Lecture material assumes Postgres 16+ for the modern UPSERT / generated identity syntax used in dw_schema.sql."
   type        = string
-  default     = "16.4"
+  default     = "16.6"
 }
 
 variable "rds_allocated_storage" {

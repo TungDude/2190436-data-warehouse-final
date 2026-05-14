@@ -58,7 +58,19 @@ resource "aws_security_group" "glue_jdbc" {
   description = "Source security group for Glue jobs and the DDL bootstrap Lambda to reach RDS."
   vpc_id      = data.aws_vpc.default.id
 
-  # No ingress — this SG only serves as a source identifier for the RDS SG.
+  # Glue Connections require the attached SG to have a self-referencing
+  # all-ports ingress rule. Without this the job fails at submission with
+  # "At least one security group must open all ingress ports". The rule is
+  # safe because only ENIs already in this SG can match - i.e. other Glue
+  # workers in the same connection.
+  ingress {
+    description = "Self-referencing all-traffic ingress required by Glue Connections."
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+  }
+
   egress {
     description = "Allow all egress so the Glue job can reach RDS, Secrets Manager, S3 VPC endpoints, and the public AWS APIs."
     from_port   = 0
@@ -72,7 +84,7 @@ resource "aws_security_group" "glue_jdbc" {
 
 resource "aws_security_group" "rds" {
   name        = "${var.project_name}-rds"
-  description = "RDS PostgreSQL — accepts traffic from the Glue JDBC SG only."
+  description = "RDS PostgreSQL - accepts traffic from the Glue JDBC SG only."
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -181,16 +193,17 @@ resource "aws_db_instance" "dw" {
 
 resource "aws_glue_connection" "dw" {
   name        = "${var.project_name}-dw"
-  description = "JDBC connection from Glue jobs to the warehouse RDS instance."
+  description = "VPC routing config for Glue jobs that need to reach the warehouse RDS instance."
 
-  connection_type = "JDBC"
-
-  connection_properties = {
-    JDBC_CONNECTION_URL = "jdbc:postgresql://${aws_db_instance.dw.address}:${aws_db_instance.dw.port}/${aws_db_instance.dw.db_name}"
-    USERNAME            = aws_db_instance.dw.username
-    PASSWORD            = random_password.rds_master.result
-    JDBC_ENFORCE_SSL    = "false"
-  }
+  # NETWORK (not JDBC) so Glue attaches only the VPC subnet/SG to the job
+  # and DOES NOT add GlueSparkConnector-PostgreSQL-1.0.jar to the classpath.
+  # That connector wraps Spark's JDBC reader with predicate-pushdown SQL
+  # that emits invalid Postgres syntax for our SCD2 reads (literal "[" in
+  # the WHERE clause). Vanilla org.postgresql.Driver from Glue 5.0's
+  # bundled classpath handles the same reads cleanly. Credentials live in
+  # Secrets Manager and reach the job via --secret_arn, not the
+  # connection's connection_properties (NETWORK type doesn't accept them).
+  connection_type = "NETWORK"
 
   physical_connection_requirements {
     availability_zone      = data.aws_subnet.glue_connection.availability_zone
