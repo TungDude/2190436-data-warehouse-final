@@ -326,6 +326,13 @@ def _apply_scd2_sql(
     # INSERT). Two genuinely different versions for the same NK within
     # one Chicago day would fail the constraint and roll back the whole
     # transaction — acceptable given the once-daily ingest cadence.
+    # Defense-in-depth: the upstream Spark classifier already pre-filters
+    # unchanged rows out of the staging table, but if a future caller
+    # (including tests) reaches `_apply_scd2_sql` with hash-equal rows in
+    # staging, the NOT EXISTS predicate prevents an unwanted new version.
+    nk_match_current = " AND ".join(
+        f"cur.{k} IS NOT DISTINCT FROM s.{k}" for k in natural_key
+    )
     insert_sql = f"""
         INSERT INTO {target_table} (
             {insert_col_list},
@@ -345,6 +352,13 @@ def _apply_scd2_sql(
                GROUP BY {nk_group}
           ) AS prev_max
             ON {" AND ".join(f"prev_max.{k} IS NOT DISTINCT FROM s.{k}" for k in natural_key)}
+         WHERE NOT EXISTS (
+             SELECT 1
+               FROM {target_table} AS cur
+              WHERE cur.is_current = TRUE
+                AND cur.scd_hash IS NOT DISTINCT FROM s.scd_hash
+                AND {nk_match_current}
+         )
     """
 
     with _psycopg_connect(jdbc_props) as conn:

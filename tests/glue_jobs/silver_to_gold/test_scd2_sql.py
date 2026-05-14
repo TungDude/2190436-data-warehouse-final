@@ -225,6 +225,60 @@ def test_scd2_case_c_changed_hash_expires_and_inserts_v2(clean_dw, pg_conn):
 
 
 # ---------------------------------------------------------------------------
+# Defense-in-depth — staging row with unchanged hash must NOT insert a v2
+#
+# In production, the Spark classifier upstream filters unchanged rows
+# before they reach the staging table. This test verifies the SQL itself
+# has a guard against bug-induced regressions: if a future caller stages
+# a hash-equal row, the NOT EXISTS predicate in the INSERT must skip it.
+# ---------------------------------------------------------------------------
+
+
+def test_scd2_unchanged_hash_in_staging_is_rejected_by_insert(clean_dw, pg_conn):
+    _create_dim_crime_type_staging(pg_conn)
+    same_hash = _hash("THEFT", "Under $500", "06")
+
+    # Insert v1 directly so we can stage a deliberate duplicate.
+    with pg_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO dw.dim_crime_type "
+            "(iucr, primary_type, description, fbi_code, scd_start_date, "
+            " scd_end_date, is_current, scd_version, scd_hash) VALUES "
+            "('0820', 'THEFT', 'Under $500', '06', DATE '2020-01-01', "
+            " DATE '9999-12-31', TRUE, 1, %s)",
+            (same_hash,),
+        )
+    pg_conn.commit()
+
+    # Stage the SAME hash — a buggy upstream might do this.
+    _insert_into_staging(
+        pg_conn,
+        "dw_staging.scd2_dim_crime_type_inflight",
+        [("0820", "THEFT", "Under $500", "06", same_hash)],
+    )
+
+    common._apply_scd2_sql(
+        jdbc_props=clean_dw,
+        target_table="dw.dim_crime_type",
+        staging_table="dw_staging.scd2_dim_crime_type_inflight",
+        natural_key=["iucr"],
+        insert_cols=["iucr", "primary_type", "description", "fbi_code"],
+    )
+
+    with psycopg.connect(
+        host=clean_dw["host"],
+        port=int(clean_dw["port"]),
+        dbname=clean_dw["dbname"],
+        user=clean_dw["user"],
+        password=clean_dw["password"],
+    ) as conn:
+        rows = _read_dim_crime_type(conn)
+    assert len(rows) == 1
+    assert rows[0]["scd_version"] == 1
+    assert rows[0]["is_current"] is True
+
+
+# ---------------------------------------------------------------------------
 # Case D — pre-existing expired version + a new change keeps history
 # ---------------------------------------------------------------------------
 
