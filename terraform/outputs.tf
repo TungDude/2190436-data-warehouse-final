@@ -95,3 +95,13 @@ output "glue_jdbc_connection_name" {
   description = "Name of the AWS Glue JDBC Connection that targets the warehouse RDS instance."
   value       = aws_glue_connection.dw.name
 }
+
+output "glue_silver_to_gold_dims_job_name" {
+  description = "Glue job name for the silver->gold dim loaders."
+  value       = aws_glue_job.silver_to_gold_dims.name
+}
+
+output "glue_silver_to_gold_facts_job_name" {
+  description = "Glue job name for the silver->gold fact loaders."
+  value       = aws_glue_job.silver_to_gold_facts.name
+}

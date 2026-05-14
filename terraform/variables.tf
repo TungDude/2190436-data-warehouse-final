@@ -258,3 +258,19 @@ variable "rds_deletion_protection" {
   type        = bool
   default     = false
 }
+
+# ---------------------------------------------------------------------------
+# Silver -> Gold Glue configuration
+# ---------------------------------------------------------------------------
+
+variable "glue_silver_to_gold_worker_type" {
+  description = "Glue worker type for the silver->gold dim/fact jobs."
+  type        = string
+  default     = "G.1X"
+}
+
+variable "glue_silver_to_gold_number_of_workers" {
+  description = "Number of Glue workers for the silver->gold dim/fact jobs. Minimum 2 for G.1X."
+  type        = number
+  default     = 2
+}
