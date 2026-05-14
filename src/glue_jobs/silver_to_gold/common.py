@@ -141,14 +141,17 @@ def compute_scd_hash(df: DataFrame, tracked_cols: list[str]) -> DataFrame:
         # which collapses SCD2 to insert-once-per-NK semantics. That is
         # the correct V1 behaviour for dim_location (no SCD2-tracked
         # attributes until source 3 lands).
-        constant_hash = F.sha2(F.lit(""), 256).cast(BinaryType())
+        constant_hash = F.unhex(F.sha2(F.lit(""), 256)).cast(BinaryType())
         return df.withColumn("scd_hash", constant_hash)
 
     parts = [
         F.coalesce(F.col(c).cast("string"), F.lit(_NULL_SENTINEL))
         for c in tracked_cols
     ]
-    hash_col = F.sha2(F.concat_ws(_COL_SEPARATOR, *parts), 256).cast(BinaryType())
+    # F.sha2 returns a hex string; F.unhex turns it into the 32 raw bytes
+    # that fit BYTEA naturally and match Python's hashlib.sha256(...).digest()
+    # output (so test fixtures can compare hashes byte-for-byte).
+    hash_col = F.unhex(F.sha2(F.concat_ws(_COL_SEPARATOR, *parts), 256)).cast(BinaryType())
     return df.withColumn("scd_hash", hash_col)
 
 
