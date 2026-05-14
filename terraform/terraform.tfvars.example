@@ -18,3 +18,16 @@ raw_chicago_crime_prefix = "raw/chicaho_crime"
 # Add additional source names here as their handler modules land
 # under src/glue_jobs/bronze_to_silver/sources/.
 # glue_supported_sources = ["chicago_crime"]
+
+# ---------------------------------------------------------------------------
+# QuickSight BI layer.
+#
+# Enable only after the account is subscribed to QuickSight in aws_region.
+# The principal ARN is the QuickSight author/user or group that should own the
+# data source, dataset, and dashboards.
+# ---------------------------------------------------------------------------
+
+# quicksight_enabled = true
+# quicksight_admin_principal_arn = "arn:aws:quicksight:ap-southeast-1:238027390687:user/default/<username>"
+# quicksight_refresh_time = "06:00"
+# quicksight_refresh_timezone = "America/Chicago"

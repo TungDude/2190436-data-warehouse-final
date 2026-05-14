@@ -70,9 +70,27 @@ resource "aws_security_group" "glue_jdbc" {
   tags = local.common_tags
 }
 
+resource "aws_security_group" "quicksight" {
+  name        = "${var.project_name}-quicksight"
+  description = "Source security group for QuickSight VPC connections to reach the warehouse RDS instance."
+  vpc_id      = data.aws_vpc.default.id
+
+  # No ingress. QuickSight attaches ENIs to this SG and only initiates
+  # outbound PostgreSQL connections to RDS.
+  egress {
+    description = "Allow QuickSight ENIs to reach private data sources in the VPC."
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = local.common_tags
+}
+
 resource "aws_security_group" "rds" {
   name        = "${var.project_name}-rds"
-  description = "RDS PostgreSQL — accepts traffic from the Glue JDBC SG only."
+  description = "RDS PostgreSQL accepts traffic from Glue/Lambda and QuickSight security groups only."
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -81,6 +99,14 @@ resource "aws_security_group" "rds" {
     to_port         = 5432
     protocol        = "tcp"
     security_groups = [aws_security_group.glue_jdbc.id]
+  }
+
+  ingress {
+    description     = "PostgreSQL from QuickSight VPC connection."
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.quicksight.id]
   }
 
   # No egress rules — Postgres is the responder, not a caller.

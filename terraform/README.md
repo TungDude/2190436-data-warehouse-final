@@ -11,6 +11,8 @@ The Terraform stack provisions the full bronze -> silver -> gold pipeline:
   `sql/dw_seed.sql` to RDS at apply-time; AWS Glue JDBC Connection;
   two silver -> gold PySpark Glue Jobs (`dims` then `facts`) chained
   onto the existing workflow.
+- **BI tier** - optional QuickSight VPC connection, PostgreSQL data source,
+  SPICE dataset, daily refresh schedule, and two Terraform-managed dashboards.
 
 The single S3 bucket carries every prefix (`raw/`, `standardized/`,
 `glue/scripts/`, `sql/`) for cost and IAM simplicity.
@@ -27,6 +29,7 @@ File layout in this directory:
 | `vpc_endpoints.tf` | S3 Gateway + Secrets Manager/Logs Interface endpoints so in-VPC Lambda + Glue can reach AWS APIs |
 | `lambda_dw_bootstrap.tf` | one-shot Lambda that applies SQL DDL to RDS, layer build for psycopg[binary] |
 | `silver_to_gold.tf` | silver->gold dims + facts Glue Jobs, workflow extension triggers |
+| `quicksight.tf` | optional QuickSight VPC connection, RDS data source, SPICE dataset, refresh schedule, and dashboards |
 | `variables.tf`, `outputs.tf` | inputs/outputs |
 
 ## Local validation (no AWS apply)
@@ -68,6 +71,32 @@ terraform init
 terraform plan
 terraform apply
 ```
+
+## QuickSight dashboards
+
+QuickSight is opt-in because the account must already be subscribed and the
+Terraform stack cannot infer the QuickSight author principal.
+
+1. Subscribe the account to QuickSight in `aws_region` if it is not already
+   enabled.
+2. Find the QuickSight principal ARN for the author/user or group that should
+   own the assets. User ARNs look like
+   `arn:aws:quicksight:ap-southeast-1:238027390687:user/default/<username>`.
+3. Set these variables and apply:
+
+```hcl
+quicksight_enabled             = true
+quicksight_admin_principal_arn = "arn:aws:quicksight:ap-southeast-1:238027390687:user/default/<username>"
+```
+
+Terraform will create:
+
+- `Chicago Crime Overview`: total incidents, arrests, monthly trend, and
+  primary-type distribution.
+- `Chicago Crime Detail`: day/hour heatmap, district arrests, and community
+  area by primary type table.
+- a daily SPICE full refresh at `quicksight_refresh_time` after the gold Glue
+  jobs normally finish.
 
 The Glue Workflow runs once per day at 03:30 America/Chicago (90 minutes
 after the chicago_crime fetch Lambda). To trigger an ad-hoc run:

@@ -105,3 +105,32 @@ output "glue_silver_to_gold_facts_job_name" {
   description = "Glue job name for the silver->gold fact loaders."
   value       = aws_glue_job.silver_to_gold_facts.name
 }
+
+# ---------------------------------------------------------------------------
+# QuickSight BI outputs
+# ---------------------------------------------------------------------------
+
+output "quicksight_vpc_connection_arn" {
+  description = "ARN of the QuickSight VPC connection to the private warehouse VPC, or null when QuickSight is disabled."
+  value       = try(aws_quicksight_vpc_connection.dw[0].arn, null)
+}
+
+output "quicksight_data_source_arn" {
+  description = "ARN of the QuickSight PostgreSQL data source, or null when QuickSight is disabled."
+  value       = try(aws_quicksight_data_source.dw[0].arn, null)
+}
+
+output "quicksight_crime_analytics_data_set_arn" {
+  description = "ARN of the SPICE dataset used by the QuickSight dashboards, or null when QuickSight is disabled."
+  value       = try(aws_quicksight_data_set.crime_analytics[0].arn, null)
+}
+
+output "quicksight_crime_overview_dashboard_arn" {
+  description = "ARN of the Chicago Crime Overview dashboard, or null when QuickSight is disabled."
+  value       = try(aws_quicksight_dashboard.crime_overview[0].arn, null)
+}
+
+output "quicksight_crime_detail_dashboard_arn" {
+  description = "ARN of the Chicago Crime Detail dashboard, or null when QuickSight is disabled."
+  value       = try(aws_quicksight_dashboard.crime_detail[0].arn, null)
+}
