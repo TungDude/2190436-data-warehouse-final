@@ -45,7 +45,31 @@ def lambda_handler(event, context):  # noqa: ARG001
         return _apply(_conn_kwargs())
     if action == "verify":
         return _verify(_conn_kwargs())
+    if action == "query":
+        sql = (event or {}).get("sql")
+        if not sql:
+            raise RuntimeError("'query' action requires 'sql' in event payload.")
+        return _query(_conn_kwargs(), sql)
     raise RuntimeError(f"Unknown action: {action!r}")
+
+
+def _query(conn_kwargs: dict, sql: str) -> dict:
+    with psycopg.connect(**conn_kwargs) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            cols = [d.name for d in cur.description] if cur.description else []
+            rows = cur.fetchall() if cur.description else []
+    return {
+        "status": "ok",
+        "columns": cols,
+        "rows": [[_serialise(v) for v in r] for r in rows],
+    }
+
+
+def _serialise(v):
+    if v is None or isinstance(v, (int, float, str, bool)):
+        return v
+    return str(v)
 
 
 def _conn_kwargs() -> dict:
