@@ -21,8 +21,7 @@
 # ---------------------------------------------------------------------------
 
 locals {
-  silver_to_gold_src_root        = "${path.module}/../src/glue_jobs/silver_to_gold"
-  silver_to_gold_deps_layer_root = "${path.module}/.terraform/silver_to_gold_deps"
+  silver_to_gold_src_root = "${path.module}/../src/glue_jobs/silver_to_gold"
 }
 
 # ---------------------------------------------------------------------------
@@ -71,15 +70,31 @@ resource "aws_s3_object" "silver_to_gold_libs" {
 }
 
 # ---------------------------------------------------------------------------
-# psycopg[binary] deps zip — bundled into --extra-py-files so the Glue job
-# can `import psycopg` without PyPI reachability from inside the VPC.
+# psycopg[binary] wheels — uploaded to S3 and consumed via
+# --additional-python-modules so Glue pip-installs them onto each worker.
+#
+# Why not --extra-py-files with a zip: psycopg_binary contains compiled
+# .so files. Python's zipimport CANNOT load extension modules from inside
+# a zip, so the binary impl fails with "cannot import name 'pq'". The
+# fallback "python" impl needs libpq on the worker filesystem (not
+# present on Glue 5.0). Pip-installing the wheel extracts the .so to a
+# real venv path, which zipimport-style sys.path can dlopen.
+#
+# Why not PyPI: the job's VPC has no NAT or PyPI mirror, so pip cannot
+# reach pypi.org. Glue's pip resolver does reach S3 via the S3 gateway
+# endpoint, so wheels hosted on S3 install fine. We pin all transitive
+# deps (typing_extensions) in requirements.txt to keep --no-deps safe.
 #
 # Build target Python is 3.11 (Glue 5.0's worker Python). Build target
 # platform is manylinux2014_x86_64 (Glue's worker arch) so the wheel is
 # installable regardless of operator host OS.
 # ---------------------------------------------------------------------------
 
-resource "null_resource" "build_silver_to_gold_deps" {
+locals {
+  silver_to_gold_wheels_dir = "${path.module}/.terraform/silver_to_gold_wheels"
+}
+
+resource "null_resource" "build_silver_to_gold_wheels" {
   triggers = {
     requirements_md5 = filemd5("${local.silver_to_gold_src_root}/requirements.txt")
   }
@@ -92,47 +107,47 @@ import subprocess
 import sys
 from pathlib import Path
 
-target = Path(${jsonencode(local.silver_to_gold_deps_layer_root)})
+target = Path(${jsonencode(local.silver_to_gold_wheels_dir)})
 requirements = Path(${jsonencode("${local.silver_to_gold_src_root}/requirements.txt")})
 
 shutil.rmtree(target, ignore_errors=True)
 target.mkdir(parents=True, exist_ok=True)
 
 subprocess.check_call([
-    sys.executable, "-m", "pip", "install",
-    "--target", str(target),
+    sys.executable, "-m", "pip", "download",
+    "--dest", str(target),
     "--platform", "manylinux2014_x86_64",
     "--python-version", "3.11",
     "--only-binary=:all:",
-    "--no-compile",
-    "--upgrade",
     "-r", str(requirements),
 ])
     EOT
   }
 }
 
-data "archive_file" "silver_to_gold_deps" {
-  depends_on = [null_resource.build_silver_to_gold_deps]
-
-  type        = "zip"
-  source_dir  = local.silver_to_gold_deps_layer_root
-  output_path = "${path.module}/.terraform/silver_to_gold_deps.zip"
-  excludes = [
-    "**/__pycache__",
-    "**/__pycache__/**",
-    "**/*.pyc",
-    "**/*.pyo",
-    "**/*.dist-info/RECORD",
+# Wheel filenames are deterministic given pinned versions in
+# requirements.txt and the manylinux2014_x86_64 / cp311 build target.
+# Hard-coded so the for_each value is known at plan time (which it must
+# be — data.external would defer evaluation and break first-apply).
+# Update both lists together when bumping pins.
+locals {
+  silver_to_gold_wheel_names = [
+    "psycopg-3.2.13-py3-none-any.whl",
+    "psycopg_binary-3.2.13-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+    "typing_extensions-4.15.0-py3-none-any.whl",
   ]
 }
 
-resource "aws_s3_object" "silver_to_gold_deps" {
+resource "aws_s3_object" "silver_to_gold_wheel" {
+  for_each = toset(local.silver_to_gold_wheel_names)
+
   bucket       = aws_s3_bucket.raw.id
-  key          = "${var.glue_scripts_prefix}/silver_to_gold/deps.zip"
-  source       = data.archive_file.silver_to_gold_deps.output_path
-  etag         = data.archive_file.silver_to_gold_deps.output_base64sha256
-  content_type = "application/zip"
+  key          = "${var.glue_scripts_prefix}/silver_to_gold/wheels/${each.value}"
+  source       = "${local.silver_to_gold_wheels_dir}/${each.value}"
+  source_hash  = null_resource.build_silver_to_gold_wheels.triggers.requirements_md5
+  content_type = "application/octet-stream"
+
+  depends_on = [null_resource.build_silver_to_gold_wheels]
 
   tags = local.common_tags
 }
@@ -200,15 +215,20 @@ locals {
     "--silver_database"       = aws_glue_catalog_database.silver.name
     "--secret_arn"            = aws_secretsmanager_secret.rds_master.arn
     "--region"                = var.aws_region
-    # Two zips on --extra-py-files: source code AND psycopg deps. Glue
-    # unpacks each onto sys.path so `import common` (source) and
-    # `import psycopg` (dep) both resolve. PyPI is unreachable from the
-    # job's VPC (no NAT, no CodeArtifact), so baking the wheel into the
-    # zip is the only path that works.
-    "--extra-py-files" = join(",", [
-      "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.silver_to_gold_libs.key}",
-      "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.silver_to_gold_deps.key}",
+    # libs.zip carries the source package (common.py, dimensions/*,
+    # facts/*, registry.py). Pure-Python only, so zipimport is fine.
+    "--extra-py-files" = "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.silver_to_gold_libs.key}"
+    # psycopg[binary] + transitive deps must be pip-installed (not
+    # zipimported) because psycopg_binary ships compiled .so files.
+    # Glue downloads each wheel from S3 (reachable via gateway endpoint)
+    # and installs into the worker venv. --no-deps keeps the resolver
+    # offline; every required dep is pinned in requirements.txt and
+    # uploaded above.
+    "--additional-python-modules" = join(",", [
+      for w in local.silver_to_gold_wheel_names :
+      "s3://${aws_s3_bucket.raw.bucket}/${aws_s3_object.silver_to_gold_wheel[w].key}"
     ])
+    "--python-modules-installer-option" = "--no-deps"
   }
 }
 

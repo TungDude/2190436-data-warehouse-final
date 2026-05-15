@@ -23,7 +23,7 @@ data "aws_route_tables" "default" {
 
 resource "aws_security_group" "vpce" {
   name        = "${var.project_name}-vpce"
-  description = "Shared security group for Interface VPC endpoints — accepts HTTPS from in-VPC Glue and Lambda workloads."
+  description = "Shared security group for Interface VPC endpoints - accepts HTTPS from in-VPC Glue and Lambda workloads."
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -87,5 +87,44 @@ resource "aws_vpc_endpoint" "logs" {
 
   tags = merge(local.common_tags, {
     Name = "${var.project_name}-vpce-logs"
+  })
+}
+
+# ---------------------------------------------------------------------------
+# STS Interface endpoint — Glue/Spark calls sts:AssumeRole and
+# GetCallerIdentity during Hive metastore credential refresh. Without
+# this endpoint the job dies at session start with "Connect to
+# sts.<region>.amazonaws.com timed out" because the VPC has no NAT.
+# ---------------------------------------------------------------------------
+
+resource "aws_vpc_endpoint" "sts" {
+  vpc_id              = data.aws_vpc.default.id
+  service_name        = "com.amazonaws.${var.aws_region}.sts"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = data.aws_subnets.default.ids
+  security_group_ids  = [aws_security_group.vpce.id]
+  private_dns_enabled = true
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-vpce-sts"
+  })
+}
+
+# ---------------------------------------------------------------------------
+# Glue Interface endpoint — Glue jobs call back into the Glue Catalog API
+# to enumerate silver tables before reading them. Same NAT-less reason as
+# STS / Logs.
+# ---------------------------------------------------------------------------
+
+resource "aws_vpc_endpoint" "glue" {
+  vpc_id              = data.aws_vpc.default.id
+  service_name        = "com.amazonaws.${var.aws_region}.glue"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = data.aws_subnets.default.ids
+  security_group_ids  = [aws_security_group.vpce.id]
+  private_dns_enabled = true
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-vpce-glue"
   })
 }

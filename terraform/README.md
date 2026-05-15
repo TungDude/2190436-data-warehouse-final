@@ -76,9 +76,10 @@ terraform apply
 `rds.force_ssl=1` attached to the RDS instance. Because `aws_db_instance.dw`
 already has `apply_immediately = true`, the **first** apply after this
 change reboots RDS **synchronously during `terraform apply`** (typically
-1-3 minutes for db.t4g.micro). The PostgreSQL JDBC driver and our
-silver→gold Glue jobs honour `sslmode=require` automatically, so no
-application change is needed. However:
+1-3 minutes for db.t4g.micro). The Glue Connection stays `NETWORK`-typed
+(no `connection_properties`), and the PostgreSQL JDBC driver's default
+`sslmode=prefer` upgrades transparently to TLS once the server forces SSL,
+so the silver→gold jobs and QuickSight need no code or URL change. However:
 
 - The reboot pauses any in-flight Glue job that holds a JDBC session.
 - Apply outside the 03:30 America/Chicago Glue Workflow start time, or
