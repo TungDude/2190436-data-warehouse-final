@@ -211,7 +211,7 @@ variable "glue_workflow_schedule_enabled" {
 variable "glue_supported_sources" {
   description = "Sources the bronze->silver Glue Workflow runs per scheduled execution. Each name must have a matching handler module under src/glue_jobs/bronze_to_silver/sources/."
   type        = list(string)
-  default     = ["chicago_crime"]
+  default     = ["chicago_crime", "iucr_codes", "socioeconomics", "weather"]
 
   validation {
     condition     = length(var.glue_supported_sources) > 0

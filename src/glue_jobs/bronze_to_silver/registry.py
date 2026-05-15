@@ -20,13 +20,21 @@ from __future__ import annotations
 # against the zip-root namespace. Under pytest the package-relative form
 # is the one that succeeds.
 try:  # pragma: no cover
-    from .sources import chicago_crime
+    from .sources import chicago_crime, iucr_codes, socioeconomics, weather
 except ImportError:  # pragma: no cover
-    from sources import chicago_crime  # type: ignore[no-redef]
+    from sources import (  # type: ignore[no-redef]
+        chicago_crime,
+        iucr_codes,
+        socioeconomics,
+        weather,
+    )
 
 
 REGISTRY = {
     chicago_crime.SOURCE_NAME: chicago_crime,
+    iucr_codes.SOURCE_NAME: iucr_codes,
+    socioeconomics.SOURCE_NAME: socioeconomics,
+    weather.SOURCE_NAME: weather,
 }
 
 

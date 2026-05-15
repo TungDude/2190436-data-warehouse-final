@@ -46,6 +46,16 @@ locals {
       COALESCE(loc.community_area_name, 'Unknown') AS community_area_name,
       COALESCE(loc.district, 'Unknown')           AS district,
       COALESCE(loc.ward, 0)::integer              AS ward,
+      -- Socioeconomic SCD2 attributes from source 3. Exposed in SPICE so
+      -- users can slice Q4 ("do socioeconomically distressed community
+      -- areas have higher Index Crime rates?") directly in QuickSight
+      -- without rebuilding the dataset. Each fact row carries the SCD2
+      -- version of the location attributes active when the crime occurred.
+      loc.pct_below_poverty::numeric              AS pct_below_poverty,
+      loc.pct_unemployed_16plus::numeric          AS pct_unemployed_16plus,
+      loc.pct_no_hs_25plus::numeric               AS pct_no_hs_25plus,
+      loc.per_capita_income_usd::integer          AS per_capita_income_usd,
+      loc.hardship_index::integer                 AS hardship_index,
       -- SCD2 sentinel dates 0001-01-01 / 9999-12-31 fall outside the
       -- QuickSight DateTime range (1583..9999 per docs, but ingestion
       -- rejects 0001 specifically). Clamp to a QS-safe window so the
@@ -109,6 +119,11 @@ locals {
     { name = "community_area_name", type = "STRING" },
     { name = "district", type = "STRING" },
     { name = "ward", type = "INTEGER" },
+    { name = "pct_below_poverty", type = "DECIMAL" },
+    { name = "pct_unemployed_16plus", type = "DECIMAL" },
+    { name = "pct_no_hs_25plus", type = "DECIMAL" },
+    { name = "per_capita_income_usd", type = "INTEGER" },
+    { name = "hardship_index", type = "INTEGER" },
     { name = "location_scd_start", type = "DATETIME" },
     { name = "location_scd_end", type = "DATETIME" },
     { name = "location_is_current", type = "INTEGER" },

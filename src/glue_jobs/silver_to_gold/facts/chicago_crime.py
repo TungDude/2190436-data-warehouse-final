@@ -18,6 +18,7 @@ import logging
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.utils import AnalysisException
 
 try:  # pragma: no cover
     from common import (
@@ -134,9 +135,46 @@ def load(
             .when(F.col("domestic") == F.lit(False), F.lit(0).cast("smallint"))
             .otherwise(F.lit(0).cast("smallint")),
         )
-        .withColumn("temperature_celsius", F.lit(None).cast("decimal(5,2)"))
-        .withColumn("precipitation_mm", F.lit(None).cast("decimal(6,2)"))
     )
+
+    # Pull the actual temperature / precipitation values from silver weather
+    # (joined by date+hour). Source 4 (Open-Meteo) lands here; before it
+    # ships, the join misses and both measures stay NULL — which is what
+    # the columns held during the V1 pre-weather window.
+    try:
+        weather_silver = read_silver_table(spark, silver_database, "weather")
+        weather_join = weather_silver.select(
+            F.date_format(F.col("obs_time"), "yyyyMMdd").cast("int").alias("_w_date_key"),
+            F.hour(F.col("obs_time")).cast("smallint").alias("_w_hour"),
+            F.col("temperature_celsius").alias("_w_temp"),
+            F.col("precipitation_mm").alias("_w_precip"),
+        ).dropDuplicates(["_w_date_key", "_w_hour"])
+
+        crime = (
+            crime.alias("f")
+            .join(
+                weather_join.alias("ws"),
+                (F.col("f.occurrence_date_key") == F.col("ws._w_date_key"))
+                & (F.col("f.occurrence_time_key") == F.col("ws._w_hour")),
+                how="left",
+            )
+            .withColumn(
+                "temperature_celsius", F.col("ws._w_temp").cast("decimal(5,2)")
+            )
+            .withColumn(
+                "precipitation_mm", F.col("ws._w_precip").cast("decimal(6,2)")
+            )
+            .drop("_w_date_key", "_w_hour", "_w_temp", "_w_precip")
+        )
+    except AnalysisException as exc:
+        LOGGER.info(
+            "weather silver table not found yet (%s); fact_crime temp/precip "
+            "fall back to NULL.",
+            exc,
+        )
+        crime = crime.withColumn(
+            "temperature_celsius", F.lit(None).cast("decimal(5,2)")
+        ).withColumn("precipitation_mm", F.lit(None).cast("decimal(6,2)"))
 
     # ------------------------------------------------------------------
     # SCD2 FK lookups against the just-loaded dim tables.
