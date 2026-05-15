@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chicago Crime DW — Star Schema</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-soft: #273449;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --fact: #fbbf24;
+    --fact-bg: #422006;
+    --dim: #60a5fa;
+    --dim-bg: #0c2545;
+    --scd2: #a78bfa;
+    --scd2-bg: #1f1538;
+    --junk: #34d399;
+    --junk-bg: #052e22;
+    --deferred: #64748b;
+    --deferred-bg: #0b1220;
+    --bridge: #f472b6;
+    --bridge-bg: #3a0d27;
+    --line: #475569;
+    --line-deferred: #334155;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+  }
+  .stage {
+    width: 1800px;
+    height: 1100px;
+    margin: 0 auto;
+    position: relative;
+    padding: 32px 40px;
+  }
+  header {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    letter-spacing: 0.2px;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+  .legend {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    align-items: center;
+  }
+  .swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  svg.lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .table {
+    position: absolute;
+    background: var(--panel);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+    z-index: 2;
+    overflow: hidden;
+  }
+  .table .head {
+    padding: 8px 12px;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .table .head .tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.08);
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+  .table ul {
+    margin: 0;
+    padding: 6px 0;
+    list-style: none;
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+  .table li {
+    padding: 2px 12px;
+    color: var(--text);
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .table li .ty {
+    color: var(--muted);
+    font-size: 10px;
+    align-self: center;
+  }
+  .table li.pk { color: #fde68a; }
+  .table li.fk { color: #93c5fd; }
+  .table li.scd { color: #c4b5fd; }
+  .table .footer {
+    border-top: 1px dashed var(--border);
+    padding: 4px 12px 6px;
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  /* color variants */
+  .fact      { border-color: var(--fact);   background: linear-gradient(180deg, var(--fact-bg), var(--panel) 40%); }
+  .fact .head { color: var(--fact); border-bottom-color: rgba(251,191,36,0.4); }
+
+  .dim       { border-color: var(--dim);   background: linear-gradient(180deg, var(--dim-bg), var(--panel) 40%); }
+  .dim .head { color: var(--dim); }
+
+  .scd2      { border-color: var(--scd2); background: linear-gradient(180deg, var(--scd2-bg), var(--panel) 40%); }
+  .scd2 .head { color: var(--scd2); }
+
+  .junk      { border-color: var(--junk); background: linear-gradient(180deg, var(--junk-bg), var(--panel) 40%); }
+  .junk .head { color: var(--junk); }
+
+  .bridge    { border-color: var(--bridge); background: linear-gradient(180deg, var(--bridge-bg), var(--panel) 40%); }
+  .bridge .head { color: var(--bridge); }
+
+  .deferred  { border-color: var(--deferred); background: var(--deferred-bg); opacity: 0.78; }
+  .deferred .head { color: var(--deferred); }
+  .deferred li, .deferred li .ty { color: #64748b; }
+
+  .source-block {
+    position: absolute;
+    z-index: 2;
+    background: rgba(15,23,42,0.6);
+    border: 1px dashed #475569;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .source-block b { color: var(--text); }
+
+  .corner-note {
+    position: absolute;
+    z-index: 2;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+
+  <header>
+    <div>
+      <h1>Chicago Crime Data Warehouse — Star Schema (gold tier, schema <code>dw</code>)</h1>
+    </div>
+    <div class="legend">
+      <span class="swatch"><span class="dot" style="background:var(--fact)"></span>Fact</span>
+      <span class="swatch"><span class="dot" style="background:var(--dim)"></span>Dim (SCD0/1)</span>
+      <span class="swatch"><span class="dot" style="background:var(--scd2)"></span>Dim (SCD2)</span>
+      <span class="swatch"><span class="dot" style="background:var(--junk)"></span>Junk dim</span>
+    </div>
+  </header>
+
+  <!-- SVG connectors -->
+  <svg class="lines" viewBox="0 0 1800 1100" preserveAspectRatio="none">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+              markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+      </marker>
+      <marker id="arrow-dim" viewBox="0 0 10 10" refX="9" refY="5"
+              markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+      </marker>
+    </defs>
+
+    <!-- fact_crime center approx (900, 600). Connect to each dim. -->
+    <!-- to dim_date (top-left) -->
+    <line x1="900" y1="540" x2="320" y2="280" stroke="#64748b" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <!-- to dim_time_of_day (top) -->
+    <line x1="900" y1="540" x2="900" y2="260" stroke="#64748b" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <!-- to dim_crime_flags (top-right) -->
+    <line x1="900" y1="540" x2="1480" y2="280" stroke="#64748b" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <!-- to dim_location (left) -->
+    <line x1="820" y1="640" x2="320" y2="640" stroke="#64748b" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <!-- to dim_crime_type (right) -->
+    <line x1="1010" y1="640" x2="1480" y2="640" stroke="#64748b" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <!-- to dim_weather (bottom-right) -->
+    <line x1="980" y1="740" x2="1480" y2="930" stroke="#64748b" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  </svg>
+
+  <!-- ===================== DIMENSIONS ===================== -->
+
+  <!-- dim_date (top-left) -->
+  <div class="table dim" style="left:120px; top:160px; width:280px;">
+    <div class="head">dim_date <span class="tag">SCD0 • smart key</span></div>
+    <ul>
+      <li class="pk">date_key <span class="ty">INT PK YYYYMMDD</span></li>
+      <li>full_date <span class="ty">DATE</span></li>
+      <li>day_of_week / day_name <span class="ty">SMALL/TEXT</span></li>
+      <li>is_weekend / is_us_holiday <span class="ty">BOOL</span></li>
+      <li>month_num / month_name <span class="ty">SMALL/TEXT</span></li>
+      <li>quarter / year / iso_week <span class="ty">SMALL</span></li>
+    </ul>
+    <div class="footer">Calendar • shared by fact_crime &amp; fact_arrest</div>
+  </div>
+
+  <!-- dim_time_of_day (top center) -->
+  <div class="table dim" style="left:760px; top:130px; width:280px;">
+    <div class="head">dim_time_of_day <span class="tag">SCD0 • 24 rows</span></div>
+    <ul>
+      <li class="pk">time_key <span class="ty">SMALL PK 0..23</span></li>
+      <li>hour_24 / hour_12 <span class="ty">SMALL</span></li>
+      <li>am_pm <span class="ty">CHAR(2)</span></li>
+      <li>period_of_day <span class="ty">TEXT</span></li>
+    </ul>
+    <div class="footer">Hour-of-day attributes</div>
+  </div>
+
+  <!-- dim_crime_flags (top-right) -->
+  <div class="table junk" style="left:1400px; top:160px; width:280px;">
+    <div class="head">dim_crime_flags <span class="tag">Junk • SCD1 • 5 rows</span></div>
+    <ul>
+      <li class="pk">flags_key <span class="ty">SMALL PK</span></li>
+      <li>is_arrest <span class="ty">BOOL nullable</span></li>
+      <li>is_domestic <span class="ty">BOOL nullable</span></li>
+      <li>label <span class="ty">TEXT</span></li>
+    </ul>
+    <div class="footer">flags_key=0 → "Unknown" (NULL/NULL)</div>
+  </div>
+
+  <!-- dim_location (left) -->
+  <div class="table scd2" style="left:60px; top:500px; width:300px;">
+    <div class="head">dim_location <span class="tag">SCD2 + embedded SCD1</span></div>
+    <ul>
+      <li class="pk">location_key <span class="ty">BIGINT PK identity</span></li>
+      <li>community_area / district <span class="ty">SMALL/TEXT</span></li>
+      <li>ward / beat / block <span class="ty">SMALL/TEXT</span></li>
+      <li>community_area_name <span class="ty">TEXT (SCD1)</span></li>
+      <li>pct_housing_crowded <span class="ty">NUM(5,2)</span></li>
+      <li>pct_below_poverty <span class="ty">NUM(5,2)</span></li>
+      <li>pct_unemployed_16plus <span class="ty">NUM(5,2)</span></li>
+      <li>pct_no_hs_25plus <span class="ty">NUM(5,2)</span></li>
+      <li>pct_under18_or_over64 <span class="ty">NUM(5,2)</span></li>
+      <li>per_capita_income_usd <span class="ty">INT</span></li>
+      <li>hardship_index <span class="ty">SMALL</span></li>
+      <li class="scd">scd_start_date / scd_end_date <span class="ty">DATE</span></li>
+      <li class="scd">is_current / scd_version / scd_hash <span class="ty">SCD2</span></li>
+    </ul>
+    <div class="footer">Enriched by source 3 (socioeconomics)</div>
+  </div>
+
+  <!-- dim_crime_type (right) -->
+  <div class="table scd2" style="left:1400px; top:500px; width:300px;">
+    <div class="head">dim_crime_type <span class="tag">SCD2</span></div>
+    <ul>
+      <li class="pk">crime_type_key <span class="ty">BIGINT PK identity</span></li>
+      <li>iucr <span class="ty">TEXT NOT NULL</span></li>
+      <li>primary_type / description <span class="ty">TEXT</span></li>
+      <li>fbi_code <span class="ty">TEXT</span></li>
+      <li>index_code <span class="ty">CHAR(1) I/N</span></li>
+      <li>active <span class="ty">BOOL</span></li>
+      <li class="scd">scd_start_date / scd_end_date <span class="ty">DATE</span></li>
+      <li class="scd">is_current / scd_version / scd_hash <span class="ty">SCD2</span></li>
+    </ul>
+    <div class="footer">Enriched by source 2 (IUCR codes)</div>
+  </div>
+
+  <!-- dim_weather (bottom-right) -->
+  <div class="table dim" style="left:1400px; top:870px; width:300px;">
+    <div class="head">dim_weather <span class="tag">SCD0 • hourly</span></div>
+    <ul>
+      <li class="pk">weather_key <span class="ty">BIGINT PK identity</span></li>
+      <li class="fk">obs_date_key → dim_date <span class="ty">INT FK</span></li>
+      <li class="fk">obs_hour → dim_time_of_day <span class="ty">SMALL FK</span></li>
+      <li>weather_code_wmo <span class="ty">SMALL</span></li>
+      <li>weather_category <span class="ty">TEXT</span></li>
+      <li>temp_band / precip_band <span class="ty">TEXT</span></li>
+    </ul>
+    <div class="footer">Outrigger via date + hour • source 4 Open-Meteo</div>
+  </div>
+
+  <!-- ===================== FACT CENTER ===================== -->
+  <div class="table fact" style="left:680px; top:480px; width:440px;">
+    <div class="head">fact_crime <span class="tag">TRANSACTION GRAIN • V1 ✓</span></div>
+    <ul>
+      <li class="pk">crime_pk <span class="ty">BIGINT PK identity</span></li>
+      <li>crime_id <span class="ty">BIGINT UNIQUE (source ID)</span></li>
+      <li>case_number <span class="ty">TEXT</span></li>
+      <li class="fk">occurrence_date_key → dim_date</li>
+      <li class="fk">occurrence_time_key → dim_time_of_day</li>
+      <li class="fk">report_date_key → dim_date</li>
+      <li class="fk">location_key → dim_location</li>
+      <li class="fk">crime_type_key → dim_crime_type</li>
+      <li class="fk">weather_key → dim_weather</li>
+      <li class="fk">flags_key → dim_crime_flags</li>
+      <li>incident_count <span class="ty">SMALL = 1 (additive)</span></li>
+      <li>is_arrest / is_domestic <span class="ty">SMALL (degenerate)</span></li>
+      <li>hours_to_update <span class="ty">INT</span></li>
+      <li>latitude / longitude <span class="ty">NUM(9,6)</span></li>
+      <li>temperature_celsius / precipitation_mm <span class="ty">NUM</span></li>
+    </ul>
+    <div class="footer">Grain: one row per Chicago crime ID • ~1.5M rows (2018–2024)</div>
+  </div>
+
+</div>
+</body>
+</html>
