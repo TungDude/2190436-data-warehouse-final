@@ -19,9 +19,9 @@ from pyspark.sql import functions as F
 from pyspark.sql.utils import AnalysisException
 
 try:  # pragma: no cover
-    from common import read_silver_table, scd2_merge
+    from common import _psycopg_connect, read_silver_table, scd2_merge
 except ImportError:  # pragma: no cover
-    from ..common import read_silver_table, scd2_merge
+    from ..common import _psycopg_connect, read_silver_table, scd2_merge
 
 LOGGER = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ def load(
 
     LOGGER.info("dim_location: %d distinct natural keys", df_new.count())
 
-    return scd2_merge(
+    merge_counts = scd2_merge(
         spark,
         jdbc_props,
         target_table=TARGET_TABLE,
@@ -141,4 +141,44 @@ def load(
         natural_key=NATURAL_KEY,
         tracked_cols=TRACKED_COLS,
         attribute_cols=ATTRIBUTE_COLS,
+    )
+
+    # community_area_name is "embedded SCD1 inside SCD2" per
+    # docs/dimensional-design.md §3.5 ("dim_location uses SCD2 with embedded
+    # Type 1 attributes"). scd2_merge above only writes new versions —
+    # historical versions of the same community_area keep their original
+    # community_area_name (NULL during V0, before source 3 landed).
+    #
+    # Without this propagation, fact rows that resolve via SCD2 to a v1
+    # dim row see community_area_name=NULL and the dashboards coalesce to
+    # "Unknown" for every row. The UPDATE below copies the current-version
+    # name onto all historical versions of the same community_area so SCD1
+    # semantics hold across the SCD2 version chain.
+    _propagate_community_area_name(jdbc_props)
+
+    return merge_counts
+
+
+def _propagate_community_area_name(jdbc_props: dict[str, str]) -> None:
+    """Copy ``community_area_name`` from the current SCD2 version to all
+    historical versions of the same ``community_area``. Idempotent.
+    """
+    sql = """
+        UPDATE dw.dim_location AS old
+           SET community_area_name = src.community_area_name
+          FROM dw.dim_location AS src
+         WHERE old.community_area = src.community_area
+           AND old.community_area IS NOT NULL
+           AND src.is_current = TRUE
+           AND src.community_area_name IS NOT NULL
+           AND (old.community_area_name IS DISTINCT FROM src.community_area_name)
+    """
+    with _psycopg_connect(jdbc_props) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            propagated = cur.rowcount
+        conn.commit()
+    LOGGER.info(
+        "dim_location: propagated community_area_name to %d historical rows",
+        propagated,
     )

@@ -499,7 +499,12 @@ resource "aws_quicksight_data_set" "crime_analytics" {
   }
 
   data_set_usage_configuration {
-    disable_use_as_direct_query_source = true
+    # AWS persists `disable_use_as_direct_query_source = false` regardless of
+    # what we send for SPICE-imported datasets. Sending `true` here triggers
+    # a perpetual UpdateDataSet diff that the QuickSight API never finishes
+    # (10+ minute hangs observed). Pinning to false eliminates the diff;
+    # `disable_use_as_imported_source = false` matches the SPICE import mode.
+    disable_use_as_direct_query_source = false
     disable_use_as_imported_source     = false
   }
 
@@ -1215,7 +1220,14 @@ resource "aws_quicksight_dashboard" "crime_detail" {
         date_time_picker {
           parameter_control_id  = "detail-as-of-date-control"
           source_parameter_name = "AsOfDate"
-          title                 = "SCD2 as-of date"
+          # Plain-English title for the SCD2 as-of-date parameter. Internal
+          # name stays "AsOfDate" so the time_range_filter binds in
+          # filter_groups continue to resolve; only the visible label
+          # changes. "Show community / crime-type attributes as of" reads
+          # as a historical filter to a non-warehouse audience and matches
+          # the actual behaviour (filters fact rows to the dim_location AND
+          # dim_crime_type SCD2 versions active on the picked date).
+          title = "Show community / crime-type attributes as of"
 
           display_options {
             date_time_format = "yyyy-MM-dd"
