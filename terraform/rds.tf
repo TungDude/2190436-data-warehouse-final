@@ -127,6 +127,36 @@ resource "aws_db_subnet_group" "dw" {
 }
 
 # ---------------------------------------------------------------------------
+# DB parameter group — force SSL on the wire.
+#
+# `rds.force_ssl=1` makes RDS PostgreSQL reject any non-SSL connection
+# attempt. PostgreSQL JDBC driver's default `sslmode=prefer` (used by our
+# silver->gold jobs and the Glue JDBC Connection) negotiates SSL on the
+# initial handshake when the server offers it, so no application code
+# change is needed — but we set JDBC_ENFORCE_SSL=true on the Glue
+# Connection for defence-in-depth (see aws_glue_connection.dw below).
+#
+# Trade-off: applying a non-default parameter group triggers a reboot of
+# the RDS instance the first time it is attached. Subsequent dynamic
+# parameter changes do not reboot; only static ones do, and `rds.force_ssl`
+# is a static parameter so the initial attach reboots once.
+# ---------------------------------------------------------------------------
+
+resource "aws_db_parameter_group" "dw" {
+  name        = "${var.project_name}-dw-pg16"
+  family      = "postgres16"
+  description = "Warehouse RDS parameter group: forces SSL on the wire."
+
+  parameter {
+    name         = "rds.force_ssl"
+    value        = "1"
+    apply_method = "pending-reboot"
+  }
+
+  tags = local.common_tags
+}
+
+# ---------------------------------------------------------------------------
 # Master credentials — random password + Secrets Manager
 # ---------------------------------------------------------------------------
 
@@ -185,6 +215,7 @@ resource "aws_db_instance" "dw" {
   password = random_password.rds_master.result
 
   db_subnet_group_name   = aws_db_subnet_group.dw.name
+  parameter_group_name   = aws_db_parameter_group.dw.name
   vpc_security_group_ids = [aws_security_group.rds.id]
   availability_zone      = data.aws_subnet.glue_connection.availability_zone
 
@@ -212,10 +243,13 @@ resource "aws_glue_connection" "dw" {
   connection_type = "JDBC"
 
   connection_properties = {
-    JDBC_CONNECTION_URL = "jdbc:postgresql://${aws_db_instance.dw.address}:${aws_db_instance.dw.port}/${aws_db_instance.dw.db_name}"
+    # `sslmode=require` makes the PostgreSQL JDBC driver insist on TLS;
+    # combined with rds.force_ssl=1 on the parameter group, both ends
+    # refuse to fall back to plaintext.
+    JDBC_CONNECTION_URL = "jdbc:postgresql://${aws_db_instance.dw.address}:${aws_db_instance.dw.port}/${aws_db_instance.dw.db_name}?sslmode=require"
     USERNAME            = aws_db_instance.dw.username
     PASSWORD            = random_password.rds_master.result
-    JDBC_ENFORCE_SSL    = "false"
+    JDBC_ENFORCE_SSL    = "true"
   }
 
   physical_connection_requirements {

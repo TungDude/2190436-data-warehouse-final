@@ -298,9 +298,9 @@ variable "quicksight_refresh_enabled" {
 }
 
 variable "quicksight_refresh_time" {
-  description = "Daily SPICE refresh time in HH:MM, set after the silver->gold workflow normally completes."
+  description = "Daily SPICE refresh time in HH:MM (quicksight_refresh_timezone). docs/architecture.md §8 calls for the refresh ~1h after the gold Glue jobs finish. The gold workflow starts at 03:30 America/Chicago and finishes in ~5-10 minutes, so 04:30 leaves a comfortable buffer."
   type        = string
-  default     = "06:00"
+  default     = "04:30"
 
   validation {
     condition     = can(regex("^([01][0-9]|2[0-3]):[0-5][0-9]$", var.quicksight_refresh_time))

@@ -29,5 +29,5 @@ raw_chicago_crime_prefix = "raw/chicaho_crime"
 
 # quicksight_enabled = true
 # quicksight_admin_principal_arn = "arn:aws:quicksight:ap-southeast-1:238027390687:user/default/<username>"
-# quicksight_refresh_time = "06:00"
+# quicksight_refresh_time = "04:30"           # one hour after gold Glue workflow start
 # quicksight_refresh_timezone = "America/Chicago"

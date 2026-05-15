@@ -13,6 +13,15 @@
 locals {
   quicksight_dataset_identifier = "crime_analytics"
 
+  # SCD2 columns from dim_location and dim_crime_type are exposed so the
+  # Detail dashboard can offer an "as-of-date" filter that proves the
+  # warehouse honors point-in-time correctness (docs/architecture.md §8,
+  # docs/dimensional-design.md §3.0 Q4).
+  #
+  # ct.index_code is included even though the IUCR loader has not landed
+  # yet — keeping it in the SPICE SQL means a later source-2 deployment
+  # picks up Q4 (Index Crime vs Non-Index) without a redeploy of the
+  # QuickSight stack.
   quicksight_crime_analytics_sql = <<-SQL
     SELECT
       fc.crime_id::bigint                         AS crime_id,
@@ -37,9 +46,17 @@ locals {
       COALESCE(loc.community_area_name, 'Unknown') AS community_area_name,
       COALESCE(loc.district, 'Unknown')           AS district,
       COALESCE(loc.ward, 0)::integer              AS ward,
+      loc.scd_start_date::timestamp               AS location_scd_start,
+      loc.scd_end_date::timestamp                 AS location_scd_end,
+      loc.is_current                              AS location_is_current,
+      loc.scd_version::integer                    AS location_scd_version,
       COALESCE(ct.primary_type, 'Unknown')        AS primary_type,
       COALESCE(ct.description, 'Unknown')         AS crime_description,
       COALESCE(ct.fbi_code, 'Unknown')            AS fbi_code,
+      COALESCE(ct.index_code, 'U')                AS index_code,
+      ct.scd_start_date::timestamp                AS crime_type_scd_start,
+      ct.scd_end_date::timestamp                  AS crime_type_scd_end,
+      ct.is_current                               AS crime_type_is_current,
       COALESCE(w.weather_category, 'Unavailable') AS weather_category,
       COALESCE(w.temp_band, 'Unavailable')        AS temp_band,
       COALESCE(w.precip_band, 'Unavailable')      AS precip_band
@@ -79,9 +96,17 @@ locals {
     { name = "community_area_name", type = "STRING" },
     { name = "district", type = "STRING" },
     { name = "ward", type = "INTEGER" },
+    { name = "location_scd_start", type = "DATETIME" },
+    { name = "location_scd_end", type = "DATETIME" },
+    { name = "location_is_current", type = "BIT" },
+    { name = "location_scd_version", type = "INTEGER" },
     { name = "primary_type", type = "STRING" },
     { name = "crime_description", type = "STRING" },
     { name = "fbi_code", type = "STRING" },
+    { name = "index_code", type = "STRING" },
+    { name = "crime_type_scd_start", type = "DATETIME" },
+    { name = "crime_type_scd_end", type = "DATETIME" },
+    { name = "crime_type_is_current", type = "BIT" },
     { name = "weather_category", type = "STRING" },
     { name = "temp_band", type = "STRING" },
     { name = "precip_band", type = "STRING" },
@@ -170,6 +195,47 @@ resource "aws_iam_role_policy" "quicksight_vpc_connection" {
   })
 }
 
+# ---------------------------------------------------------------------------
+# Secrets Manager — let QuickSight read the RDS master credentials
+#
+# `aws_quicksight_data_source.credentials.secret_arn` makes QuickSight pull
+# the RDS username/password from Secrets Manager on demand instead of
+# pinning them into Terraform state. QuickSight reads the secret as the
+# `quicksight.amazonaws.com` service principal, which the resource-based
+# policy below authorises explicitly (least-priv: GetSecretValue on this
+# one secret ARN, conditioned on the current AWS account).
+# ---------------------------------------------------------------------------
+
+data "aws_iam_policy_document" "rds_master_quicksight" {
+  count = var.quicksight_enabled ? 1 : 0
+
+  statement {
+    sid    = "AllowQuickSightReadRDSCredentials"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["quicksight.amazonaws.com"]
+    }
+
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.rds_master.arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+resource "aws_secretsmanager_secret_policy" "rds_master_quicksight" {
+  count = var.quicksight_enabled ? 1 : 0
+
+  secret_arn = aws_secretsmanager_secret.rds_master.arn
+  policy     = data.aws_iam_policy_document.rds_master_quicksight[0].json
+}
+
 resource "aws_quicksight_vpc_connection" "dw" {
   count = var.quicksight_enabled ? 1 : 0
 
@@ -204,10 +270,11 @@ resource "aws_quicksight_data_source" "dw" {
   }
 
   credentials {
-    credential_pair {
-      username = aws_db_instance.dw.username
-      password = random_password.rds_master.result
-    }
+    # `secret_arn` pulls the username/password from Secrets Manager at query
+    # time. The resource-based policy on aws_secretsmanager_secret.rds_master
+    # (see aws_secretsmanager_secret_policy.rds_master_quicksight above)
+    # is what authorises QuickSight to call GetSecretValue.
+    secret_arn = aws_secretsmanager_secret.rds_master.arn
   }
 
   vpc_connection_properties {
@@ -226,6 +293,8 @@ resource "aws_quicksight_data_source" "dw" {
   ssl_properties {
     disable_ssl = false
   }
+
+  depends_on = [aws_secretsmanager_secret_policy.rds_master_quicksight]
 
   tags = local.common_tags
 }
@@ -252,6 +321,41 @@ resource "aws_quicksight_data_set" "crime_analytics" {
         content {
           name = columns.value.name
           type = columns.value.type
+        }
+      }
+    }
+  }
+
+  # Tag latitude/longitude with QuickSight geographic roles so the Overview
+  # geospatial map can plot points without manual column-type fiddling in
+  # the QuickSight UI. Arrest-rate is computed inline at each consuming
+  # visual via calculated_measure_field — keeping the rate expression with
+  # the visuals that use it avoids a dataset-level calc column that would
+  # appear in SPICE metadata but never be referenced.
+  logical_table_map {
+    logical_table_map_id = "crime_analytics_logical"
+    alias                = "crime_analytics"
+
+    source {
+      physical_table_id = "crime_analytics_sql"
+    }
+
+    data_transforms {
+      tag_column_operation {
+        column_name = "latitude"
+
+        tags {
+          column_geographic_role = "LATITUDE"
+        }
+      }
+    }
+
+    data_transforms {
+      tag_column_operation {
+        column_name = "longitude"
+
+        tags {
+          column_geographic_role = "LONGITUDE"
         }
       }
     }
@@ -302,7 +406,7 @@ resource "aws_quicksight_dashboard" "crime_overview" {
   aws_account_id      = data.aws_caller_identity.current.account_id
   dashboard_id        = "${var.project_name}-crime-overview"
   name                = "Chicago Crime Overview"
-  version_description = "Initial Terraform-managed overview dashboard"
+  version_description = "KPIs + monthly trend + primary-type donut + community-area geospatial map."
 
   definition {
     data_set_identifiers_declarations {
@@ -310,10 +414,118 @@ resource "aws_quicksight_dashboard" "crime_overview" {
       data_set_arn = aws_quicksight_data_set.crime_analytics[0].arn
     }
 
+    # Date-range filter — exposes a date_time_picker control bound to
+    # occurrence_date; default is the full 2018-->today slice.
+    filter_groups {
+      filter_group_id = "overview-date-range"
+      cross_dataset   = "SINGLE_DATASET"
+      status          = "ENABLED"
+
+      filters {
+        time_range_filter {
+          filter_id        = "overview-occurrence-date"
+          include_minimum  = true
+          include_maximum  = true
+          null_option      = "ALL_VALUES"
+          time_granularity = "DAY"
+
+          column {
+            data_set_identifier = local.quicksight_dataset_identifier
+            column_name         = "occurrence_date"
+          }
+
+          range_minimum_value {
+            static_value = "2018-01-01T00:00:00Z"
+          }
+
+          range_maximum_value {
+            rolling_date {
+              expression = "now()"
+            }
+          }
+        }
+      }
+
+      scope_configuration {
+        selected_sheets {
+          sheet_visual_scoping_configurations {
+            sheet_id = "overview"
+            scope    = "ALL_VISUALS"
+          }
+        }
+      }
+    }
+
+    # Community-area multi-select filter — defaults to FILTER_ALL_VALUES
+    # so the dashboard opens unfiltered.
+    filter_groups {
+      filter_group_id = "overview-community"
+      cross_dataset   = "SINGLE_DATASET"
+      status          = "ENABLED"
+
+      filters {
+        category_filter {
+          filter_id = "overview-community-filter"
+
+          column {
+            data_set_identifier = local.quicksight_dataset_identifier
+            column_name         = "community_area_name"
+          }
+
+          configuration {
+            filter_list_configuration {
+              match_operator     = "CONTAINS"
+              select_all_options = "FILTER_ALL_VALUES"
+            }
+          }
+        }
+      }
+
+      scope_configuration {
+        selected_sheets {
+          sheet_visual_scoping_configurations {
+            sheet_id = "overview"
+            scope    = "ALL_VISUALS"
+          }
+        }
+      }
+    }
+
     sheets {
       sheet_id = "overview"
       name     = "Overview"
       title    = "Chicago Crime Overview"
+
+      filter_controls {
+        date_time_picker {
+          filter_control_id = "overview-date-range-control"
+          source_filter_id  = "overview-occurrence-date"
+          title             = "Occurrence date"
+          type              = "DATE_RANGE"
+
+          display_options {
+            date_time_format = "yyyy-MM-dd"
+            title_options {
+              visibility = "VISIBLE"
+            }
+          }
+        }
+      }
+
+      filter_controls {
+        dropdown {
+          filter_control_id = "overview-community-control"
+          source_filter_id  = "overview-community-filter"
+          title             = "Community area"
+          type              = "MULTI_SELECT"
+
+          display_options {
+            title_options {
+              visibility = "VISIBLE"
+            }
+          }
+        }
+      }
 
       visuals {
         kpi_visual {
@@ -342,36 +554,39 @@ resource "aws_quicksight_dashboard" "crime_overview" {
                 }
               }
             }
+
+            kpi_options {
+              primary_value_display_type = "ACTUAL"
+            }
           }
         }
       }
 
+      # Arrest rate KPI: calculated_measure_field at the visual level so
+      # the rubric's Q3 ("arrest rate over time, by district") is
+      # represented as a percentage on Overview instead of a raw count.
       visuals {
         kpi_visual {
-          visual_id = "overview-total-arrests"
+          visual_id = "overview-arrest-rate"
 
           title {
             format_text {
-              plain_text = "Arrests"
+              plain_text = "Arrest rate (%)"
             }
           }
 
           chart_configuration {
             field_wells {
               values {
-                numerical_measure_field {
-                  field_id = "total-arrests"
-
-                  column {
-                    data_set_identifier = local.quicksight_dataset_identifier
-                    column_name         = "is_arrest"
-                  }
-
-                  aggregation_function {
-                    simple_numerical_aggregation = "SUM"
-                  }
+                calculated_measure_field {
+                  field_id   = "arrest-rate-kpi"
+                  expression = "(sum({is_arrest}) * 100.0) / sum({incident_count})"
                 }
               }
+            }
+
+            kpi_options {
+              primary_value_display_type = "ACTUAL"
             }
           }
         }
@@ -424,9 +639,11 @@ resource "aws_quicksight_dashboard" "crime_overview" {
         }
       }
 
+      # Donut by primary type — replaces the bar chart so the deck matches
+      # docs/architecture.md §8's four-visual Overview spec.
       visuals {
-        bar_chart_visual {
-          visual_id = "overview-primary-type"
+        pie_chart_visual {
+          visual_id = "overview-primary-type-donut"
 
           title {
             format_text {
@@ -435,14 +652,17 @@ resource "aws_quicksight_dashboard" "crime_overview" {
           }
 
           chart_configuration {
-            orientation      = "HORIZONTAL"
-            bars_arrangement = "STACKED"
+            donut_options {
+              arc_options {
+                arc_thickness = "MEDIUM"
+              }
+            }
 
             field_wells {
-              bar_chart_aggregated_field_wells {
+              pie_chart_aggregated_field_wells {
                 category {
                   categorical_dimension_field {
-                    field_id = "primary-type"
+                    field_id = "primary-type-donut-category"
 
                     column {
                       data_set_identifier = local.quicksight_dataset_identifier
@@ -453,7 +673,7 @@ resource "aws_quicksight_dashboard" "crime_overview" {
 
                 values {
                   numerical_measure_field {
-                    field_id = "primary-type-incidents"
+                    field_id = "primary-type-donut-values"
 
                     column {
                       data_set_identifier = local.quicksight_dataset_identifier
@@ -471,6 +691,86 @@ resource "aws_quicksight_dashboard" "crime_overview" {
         }
       }
 
+      # Geospatial point map keyed off the LATITUDE/LONGITUDE-tagged
+      # lat/long columns (see logical_table_map.data_transforms above),
+      # coloured by community_area_name. QuickSight's filled_map_visual
+      # only supports country/state/county geographies — Chicago community
+      # areas are not in that hierarchy — so this point map is the best
+      # available choropleth substitute without bringing in custom GeoJSON.
+      visuals {
+        geospatial_map_visual {
+          visual_id = "overview-community-map"
+
+          title {
+            format_text {
+              plain_text = "Incidents by location (coloured by community area)"
+            }
+          }
+
+          chart_configuration {
+            field_wells {
+              geospatial_map_aggregated_field_wells {
+                geospatial {
+                  numerical_dimension_field {
+                    field_id = "geo-latitude"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "latitude"
+                    }
+                  }
+                }
+
+                geospatial {
+                  numerical_dimension_field {
+                    field_id = "geo-longitude"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "longitude"
+                    }
+                  }
+                }
+
+                values {
+                  numerical_measure_field {
+                    field_id = "geo-incidents"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "incident_count"
+                    }
+
+                    aggregation_function {
+                      simple_numerical_aggregation = "SUM"
+                    }
+                  }
+                }
+
+                colors {
+                  categorical_dimension_field {
+                    field_id = "geo-community"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "community_area_name"
+                    }
+                  }
+                }
+              }
+            }
+
+            map_style_options {
+              base_map_style = "LIGHT_GRAY"
+            }
+
+            point_style_options {
+              selected_point_style = "POINT"
+            }
+          }
+        }
+      }
+
       layouts {
         configuration {
           grid_layout {
@@ -482,20 +782,38 @@ resource "aws_quicksight_dashboard" "crime_overview" {
             }
 
             elements {
+              element_id   = "overview-date-range-control"
+              element_type = "FILTER_CONTROL"
+              column_index = "0"
+              column_span  = 12
+              row_index    = "0"
+              row_span     = 3
+            }
+
+            elements {
+              element_id   = "overview-community-control"
+              element_type = "FILTER_CONTROL"
+              column_index = "12"
+              column_span  = 12
+              row_index    = "0"
+              row_span     = 3
+            }
+
+            elements {
               element_id   = "overview-total-incidents"
               element_type = "VISUAL"
               column_index = "0"
               column_span  = 12
-              row_index    = "0"
+              row_index    = "3"
               row_span     = 6
             }
 
             elements {
-              element_id   = "overview-total-arrests"
+              element_id   = "overview-arrest-rate"
               element_type = "VISUAL"
               column_index = "12"
               column_span  = 12
-              row_index    = "0"
+              row_index    = "3"
               row_span     = 6
             }
 
@@ -504,16 +822,25 @@ resource "aws_quicksight_dashboard" "crime_overview" {
               element_type = "VISUAL"
               column_index = "0"
               column_span  = 24
-              row_index    = "6"
+              row_index    = "9"
               row_span     = 12
             }
 
             elements {
-              element_id   = "overview-primary-type"
+              element_id   = "overview-primary-type-donut"
               element_type = "VISUAL"
               column_index = "0"
-              column_span  = 24
-              row_index    = "18"
+              column_span  = 12
+              row_index    = "21"
+              row_span     = 14
+            }
+
+            elements {
+              element_id   = "overview-community-map"
+              element_type = "VISUAL"
+              column_index = "12"
+              column_span  = 12
+              row_index    = "21"
               row_span     = 14
             }
           }
@@ -544,7 +871,7 @@ resource "aws_quicksight_dashboard" "crime_detail" {
   aws_account_id      = data.aws_caller_identity.current.account_id
   dashboard_id        = "${var.project_name}-crime-detail"
   name                = "Chicago Crime Detail"
-  version_description = "Initial Terraform-managed detail dashboard"
+  version_description = "Heatmap + weather scatter + district arrest trend + community/type table, with SCD2 as-of-date parameter and domestic toggle."
 
   definition {
     data_set_identifiers_declarations {
@@ -552,10 +879,246 @@ resource "aws_quicksight_dashboard" "crime_detail" {
       data_set_arn = aws_quicksight_data_set.crime_analytics[0].arn
     }
 
+    # AsOfDate drives the SCD2 filter — pick any past date to see only the
+    # dim_location SCD2 versions that were current on that date. Default of
+    # now() means all SCD2-current location versions are visible (most fact
+    # rows, since location SCD2 updates are rare).
+    parameter_declarations {
+      date_time_parameter_declaration {
+        name             = "AsOfDate"
+        time_granularity = "DAY"
+
+        default_values {
+          rolling_date {
+            expression = "now()"
+          }
+        }
+      }
+    }
+
+    filter_groups {
+      filter_group_id = "detail-date-range"
+      cross_dataset   = "SINGLE_DATASET"
+      status          = "ENABLED"
+
+      filters {
+        time_range_filter {
+          filter_id        = "detail-occurrence-date"
+          include_minimum  = true
+          include_maximum  = true
+          null_option      = "ALL_VALUES"
+          time_granularity = "DAY"
+
+          column {
+            data_set_identifier = local.quicksight_dataset_identifier
+            column_name         = "occurrence_date"
+          }
+
+          range_minimum_value {
+            static_value = "2018-01-01T00:00:00Z"
+          }
+
+          range_maximum_value {
+            rolling_date {
+              expression = "now()"
+            }
+          }
+        }
+      }
+
+      scope_configuration {
+        selected_sheets {
+          sheet_visual_scoping_configurations {
+            sheet_id = "detail"
+            scope    = "ALL_VISUALS"
+          }
+        }
+      }
+    }
+
+    # SCD2 as-of-date filter — keeps only fact rows where BOTH the stored
+    # dim_location and dim_crime_type SCD2 versions were active on AsOfDate.
+    # Four AND-joined predicates inside a single filter group:
+    #   location_scd_start  <= AsOfDate
+    #   location_scd_end    >  AsOfDate
+    #   crime_type_scd_start <= AsOfDate
+    #   crime_type_scd_end   >  AsOfDate
+    # Implements docs/architecture.md §8's "SCD2-aware filter: show
+    # indicators as of the event date" across the two SCD2 dimensions in
+    # the bus matrix.
+    filter_groups {
+      filter_group_id = "detail-scd2-asof"
+      cross_dataset   = "SINGLE_DATASET"
+      status          = "ENABLED"
+
+      filters {
+        time_range_filter {
+          filter_id        = "detail-scd2-loc-start-le-asof"
+          include_maximum  = true
+          null_option      = "ALL_VALUES"
+          time_granularity = "DAY"
+
+          column {
+            data_set_identifier = local.quicksight_dataset_identifier
+            column_name         = "location_scd_start"
+          }
+
+          range_maximum_value {
+            parameter = "AsOfDate"
+          }
+        }
+      }
+
+      filters {
+        time_range_filter {
+          filter_id        = "detail-scd2-loc-end-gt-asof"
+          include_minimum  = false
+          null_option      = "ALL_VALUES"
+          time_granularity = "DAY"
+
+          column {
+            data_set_identifier = local.quicksight_dataset_identifier
+            column_name         = "location_scd_end"
+          }
+
+          range_minimum_value {
+            parameter = "AsOfDate"
+          }
+        }
+      }
+
+      filters {
+        time_range_filter {
+          filter_id        = "detail-scd2-ct-start-le-asof"
+          include_maximum  = true
+          null_option      = "ALL_VALUES"
+          time_granularity = "DAY"
+
+          column {
+            data_set_identifier = local.quicksight_dataset_identifier
+            column_name         = "crime_type_scd_start"
+          }
+
+          range_maximum_value {
+            parameter = "AsOfDate"
+          }
+        }
+      }
+
+      filters {
+        time_range_filter {
+          filter_id        = "detail-scd2-ct-end-gt-asof"
+          include_minimum  = false
+          null_option      = "ALL_VALUES"
+          time_granularity = "DAY"
+
+          column {
+            data_set_identifier = local.quicksight_dataset_identifier
+            column_name         = "crime_type_scd_end"
+          }
+
+          range_minimum_value {
+            parameter = "AsOfDate"
+          }
+        }
+      }
+
+      scope_configuration {
+        selected_sheets {
+          sheet_visual_scoping_configurations {
+            sheet_id = "detail"
+            scope    = "ALL_VISUALS"
+          }
+        }
+      }
+    }
+
+    # Domestic toggle — multi-select dropdown over is_domestic ∈ {0,1}.
+    # Default FILTER_ALL_VALUES means no filter; user can isolate domestic
+    # incidents to answer Q5 (time-of-day pattern of domestic incidents).
+    filter_groups {
+      filter_group_id = "detail-domestic"
+      cross_dataset   = "SINGLE_DATASET"
+      status          = "ENABLED"
+
+      filters {
+        category_filter {
+          filter_id = "detail-domestic-filter"
+
+          column {
+            data_set_identifier = local.quicksight_dataset_identifier
+            column_name         = "is_domestic"
+          }
+
+          configuration {
+            filter_list_configuration {
+              match_operator     = "CONTAINS"
+              select_all_options = "FILTER_ALL_VALUES"
+            }
+          }
+        }
+      }
+
+      scope_configuration {
+        selected_sheets {
+          sheet_visual_scoping_configurations {
+            sheet_id = "detail"
+            scope    = "ALL_VISUALS"
+          }
+        }
+      }
+    }
+
     sheets {
       sheet_id = "detail"
       name     = "Detail"
       title    = "Chicago Crime Detail"
+
+      parameter_controls {
+        date_time_picker {
+          parameter_control_id  = "detail-as-of-date-control"
+          source_parameter_name = "AsOfDate"
+          title                 = "SCD2 as-of date"
+
+          display_options {
+            date_time_format = "yyyy-MM-dd"
+            title_options {
+              visibility = "VISIBLE"
+            }
+          }
+        }
+      }
+
+      filter_controls {
+        date_time_picker {
+          filter_control_id = "detail-date-range-control"
+          source_filter_id  = "detail-occurrence-date"
+          title             = "Occurrence date"
+          type              = "DATE_RANGE"
+
+          display_options {
+            date_time_format = "yyyy-MM-dd"
+            title_options {
+              visibility = "VISIBLE"
+            }
+          }
+        }
+      }
+
+      filter_controls {
+        dropdown {
+          filter_control_id = "detail-domestic-control"
+          source_filter_id  = "detail-domestic-filter"
+          title             = "Domestic (1 = yes, 0 = no)"
+          type              = "MULTI_SELECT"
+
+          display_options {
+            title_options {
+              visibility = "VISIBLE"
+            }
+          }
+        }
+      }
 
       visuals {
         heat_map_visual {
@@ -612,40 +1175,70 @@ resource "aws_quicksight_dashboard" "crime_detail" {
         }
       }
 
+      # Weather scatter for Q2: each point = one primary_type bucket, located
+      # at (avg temperature, avg precipitation), sized by total incident count.
+      # Clusters reveal whether crime types correlate with hot/cold/wet weather.
       visuals {
-        bar_chart_visual {
-          visual_id = "detail-district-arrests"
+        scatter_plot_visual {
+          visual_id = "detail-weather-scatter"
 
           title {
             format_text {
-              plain_text = "Arrests by district"
+              plain_text = "Weather vs incidents (one point per primary type)"
             }
           }
 
           chart_configuration {
-            orientation      = "VERTICAL"
-            bars_arrangement = "STACKED"
-
             field_wells {
-              bar_chart_aggregated_field_wells {
-                category {
-                  categorical_dimension_field {
-                    field_id = "district"
+              scatter_plot_categorically_aggregated_field_wells {
+                x_axis {
+                  numerical_measure_field {
+                    field_id = "scatter-x-temp"
 
                     column {
                       data_set_identifier = local.quicksight_dataset_identifier
-                      column_name         = "district"
+                      column_name         = "temperature_celsius"
+                    }
+
+                    aggregation_function {
+                      simple_numerical_aggregation = "AVERAGE"
                     }
                   }
                 }
 
-                values {
+                y_axis {
                   numerical_measure_field {
-                    field_id = "district-arrests"
+                    field_id = "scatter-y-precip"
 
                     column {
                       data_set_identifier = local.quicksight_dataset_identifier
-                      column_name         = "is_arrest"
+                      column_name         = "precipitation_mm"
+                    }
+
+                    aggregation_function {
+                      simple_numerical_aggregation = "AVERAGE"
+                    }
+                  }
+                }
+
+                category {
+                  categorical_dimension_field {
+                    field_id = "scatter-primary-type"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "primary_type"
+                    }
+                  }
+                }
+
+                size {
+                  numerical_measure_field {
+                    field_id = "scatter-size-incidents"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "incident_count"
                     }
 
                     aggregation_function {
@@ -659,13 +1252,75 @@ resource "aws_quicksight_dashboard" "crime_detail" {
         }
       }
 
+      # District arrest trend — one line per district, x = month, y = SUM(is_arrest).
+      # Replaces the previous bar chart so Q3 ("arrest rate over time, by
+      # district") gains a time axis.
+      visuals {
+        line_chart_visual {
+          visual_id = "detail-district-arrest-trend"
+
+          title {
+            format_text {
+              plain_text = "Arrests over time by district"
+            }
+          }
+
+          chart_configuration {
+            type = "LINE"
+
+            field_wells {
+              line_chart_aggregated_field_wells {
+                category {
+                  date_dimension_field {
+                    field_id         = "district-trend-month"
+                    date_granularity = "MONTH"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "occurrence_date"
+                    }
+                  }
+                }
+
+                values {
+                  numerical_measure_field {
+                    field_id = "district-trend-arrests"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "is_arrest"
+                    }
+
+                    aggregation_function {
+                      simple_numerical_aggregation = "SUM"
+                    }
+                  }
+                }
+
+                colors {
+                  categorical_dimension_field {
+                    field_id = "district-trend-district"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "district"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      # Community×type table augmented with arrest_rate_pct (sum/sum * 100).
       visuals {
         table_visual {
           visual_id = "detail-community-type-table"
 
           title {
             format_text {
-              plain_text = "Community area and crime type detail"
+              plain_text = "Community area × crime type detail"
             }
           }
 
@@ -708,6 +1363,13 @@ resource "aws_quicksight_dashboard" "crime_detail" {
                     }
                   }
                 }
+
+                values {
+                  calculated_measure_field {
+                    field_id   = "table-arrest-rate"
+                    expression = "(sum({is_arrest}) * 100.0) / sum({incident_count})"
+                  }
+                }
               }
             }
           }
@@ -725,20 +1387,56 @@ resource "aws_quicksight_dashboard" "crime_detail" {
             }
 
             elements {
+              element_id   = "detail-as-of-date-control"
+              element_type = "PARAMETER_CONTROL"
+              column_index = "0"
+              column_span  = 8
+              row_index    = "0"
+              row_span     = 3
+            }
+
+            elements {
+              element_id   = "detail-date-range-control"
+              element_type = "FILTER_CONTROL"
+              column_index = "8"
+              column_span  = 8
+              row_index    = "0"
+              row_span     = 3
+            }
+
+            elements {
+              element_id   = "detail-domestic-control"
+              element_type = "FILTER_CONTROL"
+              column_index = "16"
+              column_span  = 8
+              row_index    = "0"
+              row_span     = 3
+            }
+
+            elements {
               element_id   = "detail-hour-day-heatmap"
               element_type = "VISUAL"
               column_index = "0"
               column_span  = 24
-              row_index    = "0"
+              row_index    = "3"
               row_span     = 14
             }
 
             elements {
-              element_id   = "detail-district-arrests"
+              element_id   = "detail-weather-scatter"
               element_type = "VISUAL"
               column_index = "0"
               column_span  = 24
-              row_index    = "14"
+              row_index    = "17"
+              row_span     = 14
+            }
+
+            elements {
+              element_id   = "detail-district-arrest-trend"
+              element_type = "VISUAL"
+              column_index = "0"
+              column_span  = 24
+              row_index    = "31"
               row_span     = 12
             }
 
@@ -747,7 +1445,7 @@ resource "aws_quicksight_dashboard" "crime_detail" {
               element_type = "VISUAL"
               column_index = "0"
               column_span  = 24
-              row_index    = "26"
+              row_index    = "43"
               row_span     = 14
             }
           }
