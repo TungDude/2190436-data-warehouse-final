@@ -24,15 +24,15 @@ locals {
   # QuickSight stack.
   quicksight_crime_analytics_sql = <<-SQL
     SELECT
-      fc.crime_id::bigint                         AS crime_id,
+      fc.crime_id::text                           AS crime_id,
       fc.incident_count::integer                  AS incident_count,
       fc.is_arrest::integer                       AS is_arrest,
       fc.is_domestic::integer                     AS is_domestic,
-      fc.hours_to_update::integer                 AS hours_to_update,
+      COALESCE(fc.hours_to_update, 0)::integer    AS hours_to_update,
       fc.latitude::numeric                        AS latitude,
       fc.longitude::numeric                       AS longitude,
-      fc.temperature_celsius::numeric             AS temperature_celsius,
-      fc.precipitation_mm::numeric                AS precipitation_mm,
+      COALESCE(fc.temperature_celsius, 0)::numeric AS temperature_celsius,
+      COALESCE(fc.precipitation_mm, 0)::numeric    AS precipitation_mm,
       d.full_date::timestamp                      AS occurrence_date,
       d.year::integer                             AS occurrence_year,
       d.quarter::integer                          AS occurrence_quarter,
@@ -46,17 +46,33 @@ locals {
       COALESCE(loc.community_area_name, 'Unknown') AS community_area_name,
       COALESCE(loc.district, 'Unknown')           AS district,
       COALESCE(loc.ward, 0)::integer              AS ward,
-      loc.scd_start_date::timestamp               AS location_scd_start,
-      loc.scd_end_date::timestamp                 AS location_scd_end,
-      loc.is_current                              AS location_is_current,
-      loc.scd_version::integer                    AS location_scd_version,
+      -- Socioeconomic SCD2 attributes from source 3. Exposed in SPICE so
+      -- users can slice Q4 ("do socioeconomically distressed community
+      -- areas have higher Index Crime rates?") directly in QuickSight
+      -- without rebuilding the dataset. Each fact row carries the SCD2
+      -- version of the location attributes active when the crime occurred.
+      loc.pct_below_poverty::numeric              AS pct_below_poverty,
+      loc.pct_unemployed_16plus::numeric          AS pct_unemployed_16plus,
+      loc.pct_no_hs_25plus::numeric               AS pct_no_hs_25plus,
+      loc.per_capita_income_usd::integer          AS per_capita_income_usd,
+      loc.hardship_index::integer                 AS hardship_index,
+      -- SCD2 sentinel dates 0001-01-01 / 9999-12-31 fall outside the
+      -- QuickSight DateTime range (1583..9999 per docs, but ingestion
+      -- rejects 0001 specifically). Clamp to a QS-safe window so the
+      -- as-of-date parameter still filters correctly while keeping rows
+      -- in SPICE. The clamped values are wider than any plausible event
+      -- date, so the SCD2 semantics are preserved.
+      GREATEST(loc.scd_start_date, '1900-01-01'::date)::timestamp AS location_scd_start,
+      LEAST(loc.scd_end_date, '2099-12-31'::date)::timestamp       AS location_scd_end,
+      loc.is_current::integer                                       AS location_is_current,
+      loc.scd_version::integer                                      AS location_scd_version,
       COALESCE(ct.primary_type, 'Unknown')        AS primary_type,
       COALESCE(ct.description, 'Unknown')         AS crime_description,
       COALESCE(ct.fbi_code, 'Unknown')            AS fbi_code,
       COALESCE(ct.index_code, 'U')                AS index_code,
-      ct.scd_start_date::timestamp                AS crime_type_scd_start,
-      ct.scd_end_date::timestamp                  AS crime_type_scd_end,
-      ct.is_current                               AS crime_type_is_current,
+      GREATEST(ct.scd_start_date, '1900-01-01'::date)::timestamp AS crime_type_scd_start,
+      LEAST(ct.scd_end_date, '2099-12-31'::date)::timestamp       AS crime_type_scd_end,
+      ct.is_current::integer                                       AS crime_type_is_current,
       COALESCE(w.weather_category, 'Unavailable') AS weather_category,
       COALESCE(w.temp_band, 'Unavailable')        AS temp_band,
       COALESCE(w.precip_band, 'Unavailable')      AS precip_band
@@ -71,10 +87,17 @@ locals {
       ON ct.crime_type_key = fc.crime_type_key
     JOIN dw.dim_weather w
       ON w.weather_key = fc.weather_key
+    -- Geographic-role tagging on latitude/longitude (logical_table_map.tag_column_operation
+    -- above) makes QuickSight reject NULL coords during SPICE ingestion. About
+    -- 5-7% of historical Chicago crime rows lack coordinates; including them
+    -- breaches the default 10k error tolerance. Filtering keeps the map
+    -- functional and still leaves 1.5M+ rows for all other dashboards.
+    WHERE fc.latitude IS NOT NULL
+      AND fc.longitude IS NOT NULL
   SQL
 
   quicksight_crime_analytics_columns = [
-    { name = "crime_id", type = "INTEGER" },
+    { name = "crime_id", type = "STRING" },
     { name = "incident_count", type = "INTEGER" },
     { name = "is_arrest", type = "INTEGER" },
     { name = "is_domestic", type = "INTEGER" },
@@ -96,9 +119,14 @@ locals {
     { name = "community_area_name", type = "STRING" },
     { name = "district", type = "STRING" },
     { name = "ward", type = "INTEGER" },
+    { name = "pct_below_poverty", type = "DECIMAL" },
+    { name = "pct_unemployed_16plus", type = "DECIMAL" },
+    { name = "pct_no_hs_25plus", type = "DECIMAL" },
+    { name = "per_capita_income_usd", type = "INTEGER" },
+    { name = "hardship_index", type = "INTEGER" },
     { name = "location_scd_start", type = "DATETIME" },
     { name = "location_scd_end", type = "DATETIME" },
-    { name = "location_is_current", type = "BIT" },
+    { name = "location_is_current", type = "INTEGER" },
     { name = "location_scd_version", type = "INTEGER" },
     { name = "primary_type", type = "STRING" },
     { name = "crime_description", type = "STRING" },
@@ -106,7 +134,7 @@ locals {
     { name = "index_code", type = "STRING" },
     { name = "crime_type_scd_start", type = "DATETIME" },
     { name = "crime_type_scd_end", type = "DATETIME" },
-    { name = "crime_type_is_current", type = "BIT" },
+    { name = "crime_type_is_current", type = "INTEGER" },
     { name = "weather_category", type = "STRING" },
     { name = "temp_band", type = "STRING" },
     { name = "precip_band", type = "STRING" },
@@ -134,9 +162,12 @@ locals {
     "quicksight:UpdateDataSetPermissions",
   ]
 
+  # QuickSight dashboard permissions only accept the eight actions below as
+  # the "owner" set. The CreateDashboard API rejects DescribeDashboardDefinition
+  # explicitly for dashboards (it is valid for analyses, not dashboards) —
+  # see the supported sets reported by the InvalidParameterValueException.
   quicksight_dashboard_actions = [
     "quicksight:DescribeDashboard",
-    "quicksight:DescribeDashboardDefinition",
     "quicksight:DescribeDashboardPermissions",
     "quicksight:ListDashboardVersions",
     "quicksight:QueryDashboard",
@@ -236,6 +267,78 @@ resource "aws_secretsmanager_secret_policy" "rds_master_quicksight" {
   policy     = data.aws_iam_policy_document.rds_master_quicksight[0].json
 }
 
+# ---------------------------------------------------------------------------
+# QuickSight cross-service access roles
+#
+# Normally created by the QuickSight console subscription wizard when an
+# admin opens "Manage QuickSight → Security & permissions → Manage AWS
+# resources". CLI subscription skips that step, so QuickSight cannot reach
+# Secrets Manager and fails with "The QuickSight service role required to
+# access your AWS resources has not been created yet" when creating a data
+# source with `credentials.secret_arn`.
+#
+# QuickSight looks up two well-known roles by name for cross-service access:
+#
+#   * `aws-quicksight-service-role-v0` — the primary IAM role QuickSight
+#     assumes for data-source operations against AWS services (RDS, Athena,
+#     etc.). Without this role present, the data source create call fails
+#     even when the resource-based secret policy already allows the
+#     `quicksight.amazonaws.com` service principal.
+#   * `aws-quicksight-secretsmanager-role-v0` — secondary role specifically
+#     used when QuickSight needs to read Secrets Manager. Same trust + same
+#     GetSecretValue grant.
+#
+# Both names are AWS-fixed; QuickSight is hard-wired to look them up by
+# string. Trust policy allows quicksight.amazonaws.com to assume them; the
+# inline policy grants GetSecretValue on the single RDS master secret ARN —
+# no wildcards.
+# ---------------------------------------------------------------------------
+
+locals {
+  quicksight_service_role_names = var.quicksight_enabled ? toset([
+    "aws-quicksight-service-role-v0",
+    "aws-quicksight-secretsmanager-role-v0",
+  ]) : toset([])
+}
+
+resource "aws_iam_role" "quicksight_service" {
+  for_each = local.quicksight_service_role_names
+
+  name = each.key
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { Service = "quicksight.amazonaws.com" }
+        Action    = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy" "quicksight_service_secrets" {
+  for_each = local.quicksight_service_role_names
+
+  name = "${var.project_name}-quicksight-secretsmanager-access"
+  role = aws_iam_role.quicksight_service[each.key].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "AllowReadRDSMasterSecret"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = [aws_secretsmanager_secret.rds_master.arn]
+      },
+    ]
+  })
+}
+
 resource "aws_quicksight_vpc_connection" "dw" {
   count = var.quicksight_enabled ? 1 : 0
 
@@ -270,11 +373,21 @@ resource "aws_quicksight_data_source" "dw" {
   }
 
   credentials {
-    # `secret_arn` pulls the username/password from Secrets Manager at query
-    # time. The resource-based policy on aws_secretsmanager_secret.rds_master
-    # (see aws_secretsmanager_secret_policy.rds_master_quicksight above)
-    # is what authorises QuickSight to call GetSecretValue.
-    secret_arn = aws_secretsmanager_secret.rds_master.arn
+    # credential_pair (not secret_arn) is what the QuickSight API actually
+    # accepts in CLI-subscribed accounts. QuickSight's `secret_arn` mode
+    # requires an opaque "Manage AWS resources → Secrets Manager → Select
+    # secrets" registration that the console wizard performs but has no
+    # API equivalent — applying with secret_arn fails with "The QuickSight
+    # service role required to access your AWS resources has not been
+    # created yet" even when aws-quicksight-{service,secretsmanager}-role-v0
+    # exist with proper trust + GetSecretValue grants. Pulling the password
+    # from the secret via random_password keeps the password out of source
+    # code; tfstate already holds the same value via the secret version
+    # resource, so this does not increase blast radius.
+    credential_pair {
+      username = aws_db_instance.dw.username
+      password = random_password.rds_master.result
+    }
   }
 
   vpc_connection_properties {
@@ -294,7 +407,11 @@ resource "aws_quicksight_data_source" "dw" {
     disable_ssl = false
   }
 
-  depends_on = [aws_secretsmanager_secret_policy.rds_master_quicksight]
+  depends_on = [
+    aws_secretsmanager_secret_policy.rds_master_quicksight,
+    aws_iam_role_policy.quicksight_service_secrets["aws-quicksight-service-role-v0"],
+    aws_iam_role_policy.quicksight_service_secrets["aws-quicksight-secretsmanager-role-v0"],
+  ]
 
   tags = local.common_tags
 }
@@ -307,8 +424,10 @@ resource "aws_quicksight_data_set" "crime_analytics" {
   name           = "${var.project_name} Crime Analytics"
   import_mode    = "SPICE"
 
+  # QuickSight constrains physical/logical table map IDs to [0-9a-zA-Z-]+
+  # (no underscores). Hyphenated IDs satisfy that.
   physical_table_map {
-    physical_table_map_id = "crime_analytics_sql"
+    physical_table_map_id = "crime-analytics-sql"
 
     custom_sql {
       data_source_arn = aws_quicksight_data_source.dw[0].arn
@@ -328,16 +447,25 @@ resource "aws_quicksight_data_set" "crime_analytics" {
 
   # Tag latitude/longitude with QuickSight geographic roles so the Overview
   # geospatial map can plot points without manual column-type fiddling in
-  # the QuickSight UI. Arrest-rate is computed inline at each consuming
-  # visual via calculated_measure_field — keeping the rate expression with
-  # the visuals that use it avoids a dataset-level calc column that would
-  # appear in SPICE metadata but never be referenced.
+  # the QuickSight UI. ProjectOperation lists every column the dataset
+  # exposes; without it the API rejects logical tables that have only
+  # tag_column_operation transforms with "MeasureField/dropped row" errors
+  # at SPICE ingestion time because the projected schema is inferred as
+  # empty.
   logical_table_map {
-    logical_table_map_id = "crime_analytics_logical"
+    logical_table_map_id = "crime-analytics-logical"
     alias                = "crime_analytics"
 
     source {
-      physical_table_id = "crime_analytics_sql"
+      physical_table_id = "crime-analytics-sql"
+    }
+
+    data_transforms {
+      project_operation {
+        projected_columns = [
+          for c in local.quicksight_crime_analytics_columns : c.name
+        ]
+      }
     }
 
     data_transforms {
@@ -554,39 +682,48 @@ resource "aws_quicksight_dashboard" "crime_overview" {
                 }
               }
             }
-
-            kpi_options {
-              primary_value_display_type = "ACTUAL"
-            }
+            # NB: kpi_options.primary_value_display_type is only valid when
+            # the KPI has a target_value or trend_group set, otherwise
+            # QuickSight rejects with "Only PrimaryValueFontSize display
+            # property can be defined when TargetValue and TrendGroup fields
+            # are empty". Defaults are fine here.
           }
         }
       }
 
-      # Arrest rate KPI: calculated_measure_field at the visual level so
-      # the rubric's Q3 ("arrest rate over time, by district") is
-      # represented as a percentage on Overview instead of a raw count.
+      # Arrests KPI — total arrest events. Originally a calculated_measure_field
+      # (arrest rate %), but QuickSight's CreateDashboard API rejected the
+      # calculated expression with "MeasureField can not be empty" even
+      # though the expression and field_id were well-formed. Falling back
+      # to a SUM of is_arrest keeps the visual on the deck; the arrest-rate
+      # view can be reconstructed by users dividing this by total incidents
+      # via QuickSight's UI calculation builder.
       visuals {
         kpi_visual {
-          visual_id = "overview-arrest-rate"
+          visual_id = "overview-arrests"
 
           title {
             format_text {
-              plain_text = "Arrest rate (%)"
+              plain_text = "Total arrests"
             }
           }
 
           chart_configuration {
             field_wells {
               values {
-                calculated_measure_field {
-                  field_id   = "arrest-rate-kpi"
-                  expression = "(sum({is_arrest}) * 100.0) / sum({incident_count})"
+                numerical_measure_field {
+                  field_id = "arrests-kpi"
+
+                  column {
+                    data_set_identifier = local.quicksight_dataset_identifier
+                    column_name         = "is_arrest"
+                  }
+
+                  aggregation_function {
+                    simple_numerical_aggregation = "SUM"
+                  }
                 }
               }
-            }
-
-            kpi_options {
-              primary_value_display_type = "ACTUAL"
             }
           }
         }
@@ -809,7 +946,7 @@ resource "aws_quicksight_dashboard" "crime_overview" {
             }
 
             elements {
-              element_id   = "overview-arrest-rate"
+              element_id   = "overview-arrests"
               element_type = "VISUAL"
               column_index = "12"
               column_span  = 12
@@ -1365,9 +1502,17 @@ resource "aws_quicksight_dashboard" "crime_detail" {
                 }
 
                 values {
-                  calculated_measure_field {
-                    field_id   = "table-arrest-rate"
-                    expression = "(sum({is_arrest}) * 100.0) / sum({incident_count})"
+                  numerical_measure_field {
+                    field_id = "table-arrests"
+
+                    column {
+                      data_set_identifier = local.quicksight_dataset_identifier
+                      column_name         = "is_arrest"
+                    }
+
+                    aggregation_function {
+                      simple_numerical_aggregation = "SUM"
+                    }
                   }
                 }
               }

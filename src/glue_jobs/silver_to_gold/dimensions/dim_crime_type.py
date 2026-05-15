@@ -1,10 +1,12 @@
 """Loader for ``dw.dim_crime_type`` (SCD2).
 
-V1 reads ``(iucr, primary_type, description, fbi_code)`` distinct from
-silver ``chicago_crime``. The ``index_code`` and ``active`` columns
-arrive when source 2 (IUCR Crime Codes) lands in silver — until then
-they default to ``NULL`` and ``TRUE`` per the DDL in
-``sql/dw_schema.sql``.
+Reads (iucr, primary_type, description, fbi_code) from silver
+``chicago_crime`` and left-joins silver ``iucr_codes`` to enrich
+``index_code`` (Index Crime classification: 'I'/'N') and ``active``.
+
+When the IUCR lookup is absent (silver table missing or empty), the
+loader falls back to NULL index_code / TRUE active per the DDL defaults
+in ``sql/dw_schema.sql``.
 """
 
 from __future__ import annotations
@@ -12,6 +14,8 @@ from __future__ import annotations
 import logging
 
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.utils import AnalysisException
 
 try:  # pragma: no cover
     from common import read_silver_table, scd2_merge
@@ -27,13 +31,30 @@ STAGING_TABLE = "dw_staging.scd2_dim_crime_type_inflight"
 
 NATURAL_KEY = ["iucr"]
 
-# These attribute changes flip an IUCR row to a new SCD2 version.
-# index_code / active are NOT tracked yet because their feeder (source 2)
-# hasn't landed; append them here when source 2 ships and the SCD2 contract
-# follows automatically.
-TRACKED_COLS = ["primary_type", "description", "fbi_code"]
+# index_code / active become SCD2-tracked once the IUCR feeder lands.
+TRACKED_COLS = ["primary_type", "description", "fbi_code", "index_code", "active"]
 
-ATTRIBUTE_COLS = ["iucr", "primary_type", "description", "fbi_code"]
+ATTRIBUTE_COLS = [
+    "iucr",
+    "primary_type",
+    "description",
+    "fbi_code",
+    "index_code",
+    "active",
+]
+
+
+def _read_iucr_lookup(spark: SparkSession, silver_database: str) -> DataFrame | None:
+    """Return the IUCR silver DF, or None if the catalog table is missing."""
+    try:
+        return read_silver_table(spark, silver_database, "iucr_codes")
+    except AnalysisException as exc:
+        LOGGER.info(
+            "iucr_codes silver table not found yet (%s); falling back to NULL "
+            "index_code / TRUE active.",
+            exc,
+        )
+        return None
 
 
 def load(
@@ -42,12 +63,38 @@ def load(
     silver_database: str,
 ) -> dict[str, int]:
     crime = read_silver_table(spark, silver_database, "chicago_crime")
+    iucr = _read_iucr_lookup(spark, silver_database)
 
-    df_new = (
-        crime.select(*ATTRIBUTE_COLS)
-        .where("iucr IS NOT NULL")  # null IUCR -> dim_crime_type_key=0 at fact load
+    base = (
+        crime.select("iucr", "primary_type", "description", "fbi_code")
+        .where("iucr IS NOT NULL")
         .dropDuplicates(NATURAL_KEY)
     )
+
+    if iucr is None:
+        df_new = base.withColumn(
+            "index_code", F.lit(None).cast("string")
+        ).withColumn("active", F.lit(True))
+    else:
+        iucr_proj = iucr.select(
+            F.col("iucr").alias("iucr_lookup"),
+            F.col("index_code"),
+            F.col("active"),
+        )
+        df_new = (
+            base.join(
+                iucr_proj,
+                base["iucr"] == iucr_proj["iucr_lookup"],
+                how="left",
+            )
+            .drop("iucr_lookup")
+            .withColumn(
+                "active",
+                F.when(F.col("active").isNull(), F.lit(True)).otherwise(F.col("active")),
+            )
+        )
+
+    df_new = df_new.select(*ATTRIBUTE_COLS)
 
     LOGGER.info("dim_crime_type: %d distinct IUCR codes", df_new.count())
 

@@ -1,12 +1,13 @@
 """Loader for ``dw.dim_location`` (SCD2 with embedded Type 1 attributes).
 
-V1 reads the geographic natural key from silver ``chicago_crime``. The
-socioeconomic SCD2-tracked columns (``pct_*``, ``per_capita_income_usd``,
-``hardship_index``, ``community_area_name``) arrive when source 3
-(Community Area Socioeconomics) lands in silver — until then,
-``TRACKED_COLS`` is empty so :func:`common.scd2_merge` performs
-insert-once-per-natural-key semantics, which is the documented null-FK
-contract from ``docs/dimensional-design.md`` §8.5.
+Reads the geographic natural key from silver ``chicago_crime`` and
+left-joins silver ``socioeconomics`` by ``community_area`` to populate
+``community_area_name`` and the seven SCD2-tracked socioeconomic
+attributes (poverty %, hardship index, per-capita income, etc.).
+
+When the socioeconomics silver table is absent or empty, the loader falls
+back to NULL for all enrichment columns — matching the V0 behaviour that
+seeded the dim with the geographic natural key only.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import logging
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.utils import AnalysisException
 
 try:  # pragma: no cover
     from common import read_silver_table, scd2_merge
@@ -30,16 +32,20 @@ STAGING_TABLE = "dw_staging.scd2_dim_location_inflight"
 
 NATURAL_KEY = ["community_area", "district", "ward", "beat"]
 
-# V1: no SCD2-tracked attribute columns. Socioeconomic columns arrive with
-# source 3. When they do, append them here; the merge contract stays the
-# same.
-TRACKED_COLS: list[str] = []
+# When these change, the SCD2 merge expires the current row and inserts a
+# new one. community_area_name is SCD1-overwrite per the dimensional design,
+# so it stays out of TRACKED_COLS — it is written into the existing row in
+# place via the scd2_merge attribute update.
+TRACKED_COLS = [
+    "pct_housing_crowded",
+    "pct_below_poverty",
+    "pct_unemployed_16plus",
+    "pct_no_hs_25plus",
+    "pct_under18_or_over64",
+    "per_capita_income_usd",
+    "hardship_index",
+]
 
-# Attribute columns written to dw.dim_location alongside the natural key.
-# block is intentionally left NULL in V1: the current natural key is
-# community_area/district/ward/beat, and many blocks can exist inside one such
-# key. Selecting an arbitrary block during dropDuplicates would make the dim
-# nondeterministic. community_area_name arrives with source 3.
 ATTRIBUTE_COLS = [
     "community_area",
     "district",
@@ -47,7 +53,28 @@ ATTRIBUTE_COLS = [
     "beat",
     "block",
     "community_area_name",
+    *TRACKED_COLS,
 ]
+
+
+def _read_socioeconomics(spark: SparkSession, silver_database: str) -> DataFrame | None:
+    """Return the socio silver DF, or None if the catalog table is missing.
+
+    Empty-table detection (df.head(1) == []) is intentionally NOT used here
+    — it can return false-empty when the Glue Catalog entry is fresh and
+    Spark's metastore cache is still stale. Better to let the downstream
+    left-join surface an empty socio cleanly than to skip enrichment on a
+    racy emptiness check.
+    """
+    try:
+        return read_silver_table(spark, silver_database, "socioeconomics")
+    except AnalysisException as exc:
+        LOGGER.info(
+            "socioeconomics silver table not found yet (%s); leaving "
+            "enrichment columns NULL.",
+            exc,
+        )
+        return None
 
 
 def load(
@@ -56,17 +83,52 @@ def load(
     silver_database: str,
 ) -> dict[str, int]:
     crime = read_silver_table(spark, silver_database, "chicago_crime")
+    socio = _read_socioeconomics(spark, silver_database)
 
-    # community_area_name comes from source 3 (not yet ingested). For V1
-    # we leave it NULL on every row — the reserved-Unknown contract
-    # absorbs missing values.
-    df_new = (
+    base = (
         crime.select(*NATURAL_KEY)
         .dropDuplicates(NATURAL_KEY)
         .withColumn("block", F.lit(None).cast("string"))
-        .withColumn("community_area_name", F.lit(None).cast("string"))
-        .select(*ATTRIBUTE_COLS)
     )
+
+    if socio is None:
+        df_new = base.withColumn(
+            "community_area_name", F.lit(None).cast("string")
+        )
+        # Explicit casts on each fallback column: F.lit(None) without a
+        # cast produces a void-typed column that compute_scd_hash's
+        # F.col(c).cast("string") then fails to find by name in some
+        # Spark versions. Casting up-front pins the schema deterministically.
+        _tracked_types = {
+            "pct_housing_crowded": "decimal(5,2)",
+            "pct_below_poverty": "decimal(5,2)",
+            "pct_unemployed_16plus": "decimal(5,2)",
+            "pct_no_hs_25plus": "decimal(5,2)",
+            "pct_under18_or_over64": "decimal(5,2)",
+            "per_capita_income_usd": "integer",
+            "hardship_index": "smallint",
+        }
+        for col, dtype in _tracked_types.items():
+            df_new = df_new.withColumn(col, F.lit(None).cast(dtype))
+    else:
+        socio_proj = socio.select(
+            F.col("community_area").alias("socio_ca"),
+            F.col("community_area_name"),
+            F.col("pct_housing_crowded"),
+            F.col("pct_below_poverty"),
+            F.col("pct_unemployed_16plus"),
+            F.col("pct_no_hs_25plus"),
+            F.col("pct_under18_or_over64"),
+            F.col("per_capita_income_usd"),
+            F.col("hardship_index"),
+        )
+        df_new = base.join(
+            socio_proj,
+            base["community_area"] == socio_proj["socio_ca"],
+            how="left",
+        ).drop("socio_ca")
+
+    df_new = df_new.select(*ATTRIBUTE_COLS)
 
     LOGGER.info("dim_location: %d distinct natural keys", df_new.count())
 

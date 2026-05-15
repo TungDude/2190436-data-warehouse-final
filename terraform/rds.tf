@@ -101,8 +101,12 @@ resource "aws_security_group" "quicksight" {
 }
 
 resource "aws_security_group" "rds" {
-  name        = "${var.project_name}-rds"
-  description = "RDS PostgreSQL - accepts traffic from Glue/Lambda and QuickSight SGs only."
+  name = "${var.project_name}-rds"
+  # AWS SG descriptions are immutable; changing this string forces
+  # destroy-then-create replacement of an SG with the same name, which
+  # collides because the live RDS instance still holds the old SG. The
+  # ingress rules below document the *actual* allow-list (Glue/Lambda + QS).
+  description = "RDS PostgreSQL - accepts traffic from the Glue JDBC SG only."
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
