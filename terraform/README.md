@@ -11,6 +11,8 @@ The Terraform stack provisions the full bronze -> silver -> gold pipeline:
   `sql/dw_seed.sql` to RDS at apply-time; AWS Glue JDBC Connection;
   two silver -> gold PySpark Glue Jobs (`dims` then `facts`) chained
   onto the existing workflow.
+- **BI tier** - optional QuickSight VPC connection, PostgreSQL data source,
+  SPICE dataset, daily refresh schedule, and two Terraform-managed dashboards.
 
 The single S3 bucket carries every prefix (`raw/`, `standardized/`,
 `glue/scripts/`, `sql/`) for cost and IAM simplicity.
@@ -27,6 +29,7 @@ File layout in this directory:
 | `vpc_endpoints.tf` | S3 Gateway + Secrets Manager/Logs Interface endpoints so in-VPC Lambda + Glue can reach AWS APIs |
 | `lambda_dw_bootstrap.tf` | one-shot Lambda that applies SQL DDL to RDS, layer build for psycopg[binary] |
 | `silver_to_gold.tf` | silver->gold dims + facts Glue Jobs, workflow extension triggers |
+| `quicksight.tf` | optional QuickSight VPC connection, RDS data source, SPICE dataset, refresh schedule, and dashboards |
 | `variables.tf`, `outputs.tf` | inputs/outputs |
 
 ## Local validation (no AWS apply)
@@ -68,6 +71,64 @@ terraform init
 terraform plan
 terraform apply
 ```
+
+**SSL note** — `rds.tf` now ships an `aws_db_parameter_group` with
+`rds.force_ssl=1` attached to the RDS instance. Because `aws_db_instance.dw`
+already has `apply_immediately = true`, the **first** apply after this
+change reboots RDS **synchronously during `terraform apply`** (typically
+1-3 minutes for db.t4g.micro). The Glue Connection stays `NETWORK`-typed
+(no `connection_properties`), and the PostgreSQL JDBC driver's default
+`sslmode=prefer` upgrades transparently to TLS once the server forces SSL,
+so the silver→gold jobs and QuickSight need no code or URL change. However:
+
+- The reboot pauses any in-flight Glue job that holds a JDBC session.
+- Apply outside the 03:30 America/Chicago Glue Workflow start time, or
+  disable `aws_scheduler_schedule.daily_glue_workflow` before applying.
+- After apply, `psql ... -c "SHOW rds.force_ssl"` should return `1`.
+
+## QuickSight dashboards
+
+QuickSight is opt-in because the account must already be subscribed and the
+Terraform stack cannot infer the QuickSight author principal.
+
+1. Subscribe the account to QuickSight in `aws_region` if it is not already
+   enabled.
+2. Find the QuickSight principal ARN for the author/user or group that should
+   own the assets. User ARNs look like
+   `arn:aws:quicksight:ap-southeast-1:238027390687:user/default/<username>`.
+3. Set these variables and apply:
+
+```hcl
+quicksight_enabled             = true
+quicksight_admin_principal_arn = "arn:aws:quicksight:ap-southeast-1:238027390687:user/default/<username>"
+```
+
+Terraform will create:
+
+- `Chicago Crime Overview`: total-incidents KPI, arrest-rate KPI (calculated
+  `sum(is_arrest)*100/sum(incident_count)`), monthly trend line, primary-type
+  donut, and a geospatial point map coloured by community area. Two filter
+  controls — occurrence-date range and community-area multi-select.
+- `Chicago Crime Detail`: day/hour heatmap, weather-vs-incidents scatter
+  (avg temperature × avg precipitation, sized by incident count, coloured by
+  primary type), monthly arrest trend by district, and a community×crime-type
+  table augmented with arrest rate. Three controls — an SCD2 `AsOfDate`
+  parameter (filters fact rows to the `dim_location` *and* `dim_crime_type`
+  SCD2 versions active on that date), an occurrence-date range filter, and a
+  domestic-flag dropdown.
+- a daily SPICE full refresh at `quicksight_refresh_time` (default `04:30`
+  America/Chicago — one hour after the 03:30 gold Glue workflow start).
+
+The QuickSight data source authenticates against the master credentials in
+AWS Secrets Manager via a resource-based secret policy that allows the
+`quicksight.amazonaws.com` service principal `GetSecretValue` on the secret
+ARN. No credentials are inlined into Terraform state.
+
+The Detail dashboard's "Domestic" dropdown lists the raw integer values
+`0` (not domestic) and `1` (domestic) — `dim_crime_flags.is_domestic` is
+cast to INTEGER in the SPICE SQL so it sums cleanly in KPIs and the
+heatmap. Treat the dropdown labels as boolean: pick `1` for domestic-only,
+`0` for non-domestic-only, or leave both selected for all incidents.
 
 The Glue Workflow runs once per day at 03:30 America/Chicago (90 minutes
 after the chicago_crime fetch Lambda). To trigger an ad-hoc run:

@@ -82,9 +82,27 @@ resource "aws_security_group" "glue_jdbc" {
   tags = local.common_tags
 }
 
+resource "aws_security_group" "quicksight" {
+  name        = "${var.project_name}-quicksight"
+  description = "Source security group for QuickSight VPC connections to reach the warehouse RDS instance."
+  vpc_id      = data.aws_vpc.default.id
+
+  # No ingress. QuickSight attaches ENIs to this SG and only initiates
+  # outbound PostgreSQL connections to RDS.
+  egress {
+    description = "Allow QuickSight ENIs to reach private data sources in the VPC."
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = local.common_tags
+}
+
 resource "aws_security_group" "rds" {
   name        = "${var.project_name}-rds"
-  description = "RDS PostgreSQL - accepts traffic from the Glue JDBC SG only."
+  description = "RDS PostgreSQL - accepts traffic from Glue/Lambda and QuickSight SGs only."
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -93,6 +111,14 @@ resource "aws_security_group" "rds" {
     to_port         = 5432
     protocol        = "tcp"
     security_groups = [aws_security_group.glue_jdbc.id]
+  }
+
+  ingress {
+    description     = "PostgreSQL from QuickSight VPC connection."
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.quicksight.id]
   }
 
   # No egress rules — Postgres is the responder, not a caller.
@@ -108,6 +134,36 @@ resource "aws_db_subnet_group" "dw" {
   name        = "${var.project_name}-dw"
   description = "Subnet group for the warehouse RDS instance, spans the default VPC's default subnets."
   subnet_ids  = data.aws_subnets.default.ids
+
+  tags = local.common_tags
+}
+
+# ---------------------------------------------------------------------------
+# DB parameter group — force SSL on the wire.
+#
+# `rds.force_ssl=1` makes RDS PostgreSQL reject any non-SSL connection
+# attempt. PostgreSQL JDBC driver's default `sslmode=prefer` (used by our
+# silver->gold jobs and the Glue JDBC Connection) negotiates SSL on the
+# initial handshake when the server offers it, so no application code
+# change is needed — but we set JDBC_ENFORCE_SSL=true on the Glue
+# Connection for defence-in-depth (see aws_glue_connection.dw below).
+#
+# Trade-off: applying a non-default parameter group triggers a reboot of
+# the RDS instance the first time it is attached. Subsequent dynamic
+# parameter changes do not reboot; only static ones do, and `rds.force_ssl`
+# is a static parameter so the initial attach reboots once.
+# ---------------------------------------------------------------------------
+
+resource "aws_db_parameter_group" "dw" {
+  name        = "${var.project_name}-dw-pg16"
+  family      = "postgres16"
+  description = "Warehouse RDS parameter group: forces SSL on the wire."
+
+  parameter {
+    name         = "rds.force_ssl"
+    value        = "1"
+    apply_method = "pending-reboot"
+  }
 
   tags = local.common_tags
 }
@@ -171,6 +227,7 @@ resource "aws_db_instance" "dw" {
   password = random_password.rds_master.result
 
   db_subnet_group_name   = aws_db_subnet_group.dw.name
+  parameter_group_name   = aws_db_parameter_group.dw.name
   vpc_security_group_ids = [aws_security_group.rds.id]
   availability_zone      = data.aws_subnet.glue_connection.availability_zone
 
@@ -203,6 +260,12 @@ resource "aws_glue_connection" "dw" {
   # bundled classpath handles the same reads cleanly. Credentials live in
   # Secrets Manager and reach the job via --secret_arn, not the
   # connection's connection_properties (NETWORK type doesn't accept them).
+  #
+  # SSL on the wire is enforced server-side by aws_db_parameter_group.dw
+  # (rds.force_ssl=1). The PostgreSQL JDBC driver's default sslmode=prefer
+  # negotiates SSL when the server offers it, so the silver->gold jobs
+  # transparently use TLS once force_ssl is in place — no JDBC URL or
+  # connection-property change needed.
   connection_type = "NETWORK"
 
   physical_connection_requirements {

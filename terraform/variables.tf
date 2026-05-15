@@ -274,3 +274,42 @@ variable "glue_silver_to_gold_number_of_workers" {
   type        = number
   default     = 2
 }
+
+# ---------------------------------------------------------------------------
+# QuickSight BI configuration
+# ---------------------------------------------------------------------------
+
+variable "quicksight_enabled" {
+  description = "Whether to create QuickSight VPC connection, RDS data source, SPICE dataset, refresh schedule, and dashboard definitions. Requires an existing QuickSight subscription in the target account."
+  type        = bool
+  default     = false
+}
+
+variable "quicksight_admin_principal_arn" {
+  description = "Optional QuickSight user/group ARN to grant owner permissions on the data source, dataset, and dashboards. Example: arn:aws:quicksight:ap-southeast-1:123456789012:user/default/alice"
+  type        = string
+  default     = null
+}
+
+variable "quicksight_refresh_enabled" {
+  description = "Whether to create a daily SPICE full-refresh schedule for the QuickSight dataset."
+  type        = bool
+  default     = true
+}
+
+variable "quicksight_refresh_time" {
+  description = "Daily SPICE refresh time in HH:MM (quicksight_refresh_timezone). docs/architecture.md §8 calls for the refresh ~1h after the gold Glue jobs finish. The gold workflow starts at 03:30 America/Chicago and finishes in ~5-10 minutes, so 04:30 leaves a comfortable buffer."
+  type        = string
+  default     = "04:30"
+
+  validation {
+    condition     = can(regex("^([01][0-9]|2[0-3]):[0-5][0-9]$", var.quicksight_refresh_time))
+    error_message = "quicksight_refresh_time must be in HH:MM 24-hour format."
+  }
+}
+
+variable "quicksight_refresh_timezone" {
+  description = "Timezone for the QuickSight SPICE refresh schedule."
+  type        = string
+  default     = "America/Chicago"
+}
