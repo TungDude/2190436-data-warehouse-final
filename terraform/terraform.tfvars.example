@@ -31,3 +31,16 @@ raw_chicago_crime_prefix = "raw/chicaho_crime"
 # quicksight_admin_principal_arn = "arn:aws:quicksight:ap-southeast-1:238027390687:user/default/<username>"
 # quicksight_refresh_time = "04:30"           # one hour after gold Glue workflow start
 # quicksight_refresh_timezone = "America/Chicago"
+
+# ---------------------------------------------------------------------------
+# Pause toggles — flip all three to `false` to disable all recurring
+# AWS-side schedules (Lambda fetch, Glue workflow, QuickSight SPICE refresh)
+# without destroying any infrastructure. The QuickSight refresh schedule
+# resource is gated on its flag (count = ... ? 1 : 0), so toggling it off
+# removes the schedule object and toggling back recreates it. See
+# docs/pause-log.md for the full pause/resume runbook used 2026-05-16.
+# ---------------------------------------------------------------------------
+
+# fetch_schedule_enabled         = true
+# glue_workflow_schedule_enabled = true
+# quicksight_refresh_enabled     = true
